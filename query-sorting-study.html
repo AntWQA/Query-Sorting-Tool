@@ -1,0 +1,1845 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Query Sorting</title>
+<style>
+  :root {
+    /* doTERRA Pure - Base 1.2.2 tokens */
+    --paper: #F6F7F8;
+    --paper-raised: #FFFFFF;
+    --ink: #354657;
+    --muted: rgba(53,70,87,0.64);
+    --line: rgba(190,196,201,0.55);
+    --line-strong: #BEC4C9;
+    --accent: #9D57B2;
+    --accent-ink: #FFFFFF;
+    --accent-tint: #EADAEE;
+    --accent-glow: rgba(157,87,178,0.32);
+    --success: #12B76A;
+    --success-bg: rgba(18,183,106,0.12);
+    --fail: #F04438;
+    --fail-bg: rgba(240,68,56,0.12);
+    --warn: #F79009;
+    --warn-bg: rgba(247,144,9,0.12);
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 16px;
+    --shadow: 0 1px 2px rgba(53,70,87,0.08), 0 6px 16px rgba(53,70,87,0.10);
+    --font-display: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-body: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #1B2430; --paper-raised: #232E3D; --ink: #E7ECEF; --muted: rgba(231,236,239,0.64);
+      --line: rgba(190,196,201,0.22); --line-strong: rgba(190,196,201,0.4);
+      --accent: #BD8BCA; --accent-ink: #2B1730; --accent-tint: rgba(157,87,178,0.2); --accent-glow: rgba(189,139,202,0.4);
+      --success-bg: rgba(18,183,106,0.18); --fail-bg: rgba(240,68,56,0.18); --warn-bg: rgba(247,144,9,0.18);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 20px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #1B2430; --paper-raised: #232E3D; --ink: #E7ECEF; --muted: rgba(231,236,239,0.64);
+    --line: rgba(190,196,201,0.22); --line-strong: rgba(190,196,201,0.4);
+    --accent: #BD8BCA; --accent-ink: #2B1730; --accent-tint: rgba(157,87,178,0.2); --accent-glow: rgba(189,139,202,0.4);
+    --success-bg: rgba(18,183,106,0.18); --fail-bg: rgba(240,68,56,0.18); --warn-bg: rgba(247,144,9,0.18);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 8px 20px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  html { scrollbar-gutter: stable; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  a { color: var(--accent); }
+  button, .bucket, input, textarea, select { transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease; }
+  @media (prefers-reduced-motion: no-preference) {
+    main.phase-enter { animation: rise 0.28s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    button:active { transform: scale(0.98); }
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: 920px; margin: 0 auto; padding-inline: 20px; }
+  .wrap.wide { max-width: 1180px; }
+  header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--paper); border-bottom: 1px solid var(--line); }
+  /* One fixed size on every screen: width, height and the logo position never change, only what sits on the right does. */
+  .top-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 68px; flex-wrap: nowrap; }
+  .brand { display: flex; flex-direction: column; gap: 5px; flex: 0 0 auto; }
+  .brand .logo { display: flex; align-items: center; color: var(--ink); }
+  .brand .logo svg { display: block; height: 24px; width: auto; }
+  .brand h1 { font-family: var(--font-display); font-weight: 600; font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .top-right { display: flex; align-items: center; gap: 8px; height: 36px; }
+  nav.views { display: flex; gap: 6px; background: var(--paper-raised); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  nav.views button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 600; font-size: 13px; padding: 7px 14px; border-radius: 999px; cursor: pointer; }
+  nav.views button.active { background: var(--ink); color: var(--paper); }
+  .icon-btn svg { display: block; }
+  .icon-btn { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid var(--line); background: var(--paper-raised); color: var(--muted); border-radius: 999px; cursor: pointer; padding: 0; font: inherit; font-weight: 700; font-size: 14px; }
+  .icon-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+  main { padding-block: 28px 80px; }
+  h2 { font-family: var(--font-display); font-size: 24px; margin: 0 0 6px; }
+  h3 { font-family: var(--font-display); font-size: 16px; margin: 28px 0 8px; }
+  p.lede { color: var(--muted); margin: 0 0 20px; max-width: 70ch; }
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow); }
+  .card + .card { margin-top: 16px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .mono { font-family: var(--font-mono); }
+
+  label.field { display: block; margin-bottom: 14px; }
+  label.field > span, .field-label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 5px; }
+  input[type="text"], input[type="number"], textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 9px 11px; }
+  .row select { width: auto; min-width: 170px; }
+  textarea { resize: vertical; min-height: 70px; }
+  textarea.json { font-family: var(--font-mono); font-size: 12px; min-height: 340px; line-height: 1.4; }
+  input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); }
+  .check { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 10px; cursor: pointer; }
+  .check span { font-size: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .row.end { justify-content: flex-end; }
+  .row.between { justify-content: space-between; }
+  .grow { flex: 1 1 auto; }
+
+  .btn { font: inherit; font-weight: 600; font-size: 14px; border-radius: 999px; padding: 10px 20px; cursor: pointer; border: 1px solid var(--line-strong); background: var(--paper-raised); color: var(--ink); }
+  .btn:hover:not(:disabled) { border-color: var(--ink); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover:not(:disabled) { box-shadow: 0 0 0 4px var(--accent-glow); }
+  .btn.danger { color: var(--fail); border-color: var(--fail); }
+  .btn.small { padding: 6px 13px; font-size: 13px; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .banner { border-radius: var(--radius-md); padding: 11px 14px; font-size: 14px; margin-bottom: 16px; border: 1px solid var(--line); background: var(--paper-raised); }
+  .banner.warn { background: var(--warn-bg); border-color: var(--warn); }
+  .banner.fail { background: var(--fail-bg); border-color: var(--fail); }
+  .banner.ok { background: var(--success-bg); border-color: var(--success); }
+  .banner.info { background: var(--accent-tint); border-color: var(--accent); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border-radius: 999px; padding: 2px 9px; background: var(--paper); border: 1px solid var(--line-strong); color: var(--muted); white-space: nowrap; }
+  .badge.ok { background: var(--success-bg); border-color: var(--success); color: var(--ink); }
+  .badge.warn { background: var(--warn-bg); border-color: var(--warn); color: var(--ink); }
+  .badge.fail { background: var(--fail-bg); border-color: var(--fail); color: var(--ink); }
+  .badge.accent { background: var(--accent-tint); border-color: var(--accent); color: var(--ink); }
+
+  /* ---------- Sorting ---------- */
+  .progress { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .progress > div { height: 100%; background: var(--accent); }
+  .query-card { text-align: center; padding: 34px 20px; margin: 18px 0; }
+  .query-label { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .query { font-family: var(--font-display); font-size: 34px; font-weight: 600; overflow-wrap: anywhere; line-height: 1.2; }
+  .buckets { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+  .gloss { margin-top: 14px; display: inline-block; text-align: left; background: var(--accent-tint); border: 1px solid var(--accent); border-radius: var(--radius-md); padding: 8px 14px; }
+  .gloss .gl-label { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .gloss .gl-text { font-size: 18px; font-weight: 600; }
+  .gl-inline { display: block; font-size: 12px; color: var(--muted); }
+  .bucket { text-align: left; display: flex; gap: 11px; align-items: flex-start; font: inherit; color: var(--ink); background: var(--paper-raised); border: 1.5px solid var(--line); border-radius: var(--radius-md); padding: 11px 12px; cursor: pointer; }
+  .bucket:hover { border-color: var(--line-strong); }
+  .bucket.selected { border-color: var(--accent); background: var(--accent-tint); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .bucket .code { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px; background: var(--ink); color: var(--paper); font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .bucket.selected .code { background: var(--accent); color: var(--accent-ink); }
+  .bucket .bname { display: block; font-weight: 700; font-size: 14px; }
+  .bucket .bdef { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .bucket.none { border-style: dashed; }
+  .flags { display: flex; gap: 22px; flex-wrap: wrap; margin: 18px 0 8px; }
+  .flags .check { margin: 0; }
+  .nav-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 18px; align-items: center; flex-wrap: wrap; }
+
+  /* ---------- Tables ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--paper-raised); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: var(--paper); position: sticky; top: 0; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: var(--accent-tint); }
+  .matrix td, .matrix th { text-align: center; padding: 6px 8px; min-width: 34px; }
+  .matrix th.rowh { text-align: left; position: static; }
+  .matrix td.diag { font-weight: 700; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 14px 0; }
+  .tile { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px; }
+  .tile .big { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .tile .cap { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .tile .lbl { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 4px; }
+  .session-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); align-items: center; }
+  .session-row:last-child { border-bottom: 0; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .export-menu-wrap { position: relative; display: inline-flex; }
+  .export-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 240px; background: var(--paper-raised); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: var(--shadow); padding: 4px; z-index: 30; display: flex; flex-direction: column; }
+  .export-menu button { border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 13px; text-align: left; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+  .export-menu button:hover { background: var(--accent-tint); }
+  .shortcuts-panel { position: fixed; right: 20px; top: 70px; z-index: 40; width: 300px; background: var(--paper-raised); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; font-size: 13px; }
+  .shortcuts-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 8px 0 0; }
+  .shortcuts-panel dt { font-family: var(--font-mono); font-weight: 700; }
+  .shortcuts-panel dd { margin: 0; color: var(--muted); }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  ul.tight { margin: 6px 0 0; padding-left: 20px; }
+  ul.tight li { margin-bottom: 4px; }
+  @media (max-width: 640px) { .query { font-size: 26px; } .wrap { padding-inline: 14px; } }
+  /* The header cannot wrap (it must keep one height), so on a phone it gets smaller parts instead. */
+  @media (max-width: 520px) {
+    .top-inner { gap: 8px; }
+    .brand h1 { font-size: 10px; letter-spacing: 0.03em; }
+    .top-right { gap: 6px; }
+    nav.views { gap: 2px; }
+    nav.views button { padding: 6px 8px; font-size: 12px; }
+    .help-btn { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function () {
+  "use strict";
+
+  var LOGO_SVG = '<svg width="115" height="32" viewBox="0 0 115 32" fill="none" xmlns="http://www.w3.org/2000/svg">\n<path fill-rule="evenodd" clip-rule="evenodd" d="M12.8762 26.1912C12.8762 26.2753 12.8582 26.3494 12.8216 26.4117C12.7856 26.4746 12.7235 26.5246 12.6352 26.561C12.5469 26.5974 12.4295 26.6263 12.2849 26.6474C12.1396 26.6686 11.9636 26.6792 11.7568 26.6792C11.5389 26.6792 11.3577 26.6686 11.2125 26.6474C11.0672 26.6263 10.9481 26.5974 10.8546 26.561C10.7605 26.5246 10.6937 26.4746 10.6525 26.4117C10.6106 26.3494 10.5897 26.2753 10.5897 26.1912V24.3183C9.85426 25.1266 9.08918 25.7556 8.29621 26.2071C7.50325 26.6574 6.63476 26.8837 5.69192 26.8837C4.66542 26.8837 3.78822 26.6815 3.06264 26.2777C2.33707 25.8738 1.74917 25.3283 1.29779 24.6411C0.847572 23.9544 0.518186 23.1461 0.310796 22.2173C0.103405 21.2891 0 20.3109 0 19.2821C0 18.0658 0.129547 16.9671 0.38864 15.9854C0.647733 15.0048 1.03056 14.1683 1.53887 13.4758C2.0466 12.7827 2.67633 12.2507 3.42863 11.878C4.18035 11.5071 5.04825 11.3195 6.03408 11.3195C6.85261 11.3195 7.60201 11.5006 8.28111 11.8627C8.95963 12.2243 9.63118 12.7569 10.2952 13.4599V6.5038C10.2952 6.43031 10.3126 6.36036 10.3486 6.29099C10.3852 6.22339 10.4555 6.17048 10.5595 6.13403C10.6623 6.09758 10.7948 6.06643 10.9551 6.03939C11.116 6.01352 11.3211 6 11.5697 6C11.8288 6 12.0414 6.01352 12.2076 6.03939C12.3732 6.06643 12.5027 6.09758 12.5962 6.13403C12.6898 6.17048 12.7595 6.22339 12.8065 6.29099C12.853 6.36036 12.8762 6.43031 12.8762 6.5038V26.1912ZM10.2952 16.2294C9.59981 15.3587 8.92884 14.695 8.28111 14.2389C7.63279 13.7833 6.9566 13.5546 6.25135 13.5546C5.59839 13.5546 5.0436 13.7116 4.587 14.0272C4.13097 14.3411 3.76092 14.7556 3.4751 15.2694C3.19045 15.7838 2.98306 16.3657 2.85351 17.0171C2.7228 17.6673 2.65948 18.328 2.65948 18.9999C2.65948 19.713 2.71351 20.4108 2.82214 21.0921C2.93136 21.7746 3.12016 22.3807 3.39029 22.9104C3.65984 23.4401 4.01711 23.8651 4.46326 24.1849C4.90883 24.5047 5.46826 24.6646 6.14272 24.6646C6.48488 24.6646 6.81311 24.6175 7.12971 24.5229C7.44574 24.4282 7.77047 24.2713 8.10218 24.0508C8.43389 23.8304 8.7807 23.5447 9.14436 23.1931C9.50686 22.8416 9.88969 22.4089 10.2952 21.8946V16.2294Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M30.7903 18.7104C30.7903 19.8643 30.6398 20.9272 30.3401 21.8972C30.0386 22.8677 29.5907 23.7048 28.994 24.4067C28.3986 25.1104 27.6521 25.6589 26.7552 26.0521C25.8582 26.4454 24.8189 26.6418 23.6373 26.6418C22.4859 26.6418 21.4832 26.4689 20.6281 26.1227C19.7724 25.7764 19.0596 25.2726 18.4892 24.6119C17.9193 23.9511 17.494 23.1487 17.2146 22.204C16.934 21.2599 16.794 20.19 16.794 18.9931C16.794 17.8397 16.9421 16.7781 17.2373 15.8069C17.5335 14.837 17.9785 14.0004 18.5751 13.2973C19.1706 12.5943 19.9147 12.0487 20.8065 11.6602C21.6982 11.2728 22.7404 11.0782 23.9319 11.0782C25.0832 11.0782 26.0859 11.251 26.9411 11.5973C27.7973 11.9435 28.5096 12.4467 29.08 13.1081C29.6499 13.7694 30.0775 14.5718 30.3633 15.5153C30.6474 16.46 30.7903 17.5252 30.7903 18.7104ZM28.1314 18.8832C28.1314 18.1178 28.0611 17.3941 27.9199 16.7122C27.7776 16.0291 27.5446 15.4319 27.2211 14.9175C26.8969 14.4043 26.4571 13.9975 25.9024 13.6983C25.3487 13.3996 24.658 13.2497 23.8314 13.2497C23.0674 13.2497 22.411 13.3861 21.8626 13.6589C21.313 13.9316 20.8605 14.3179 20.5044 14.8152C20.1494 15.3137 19.8851 15.9039 19.7126 16.5864C19.54 17.2678 19.4535 18.0126 19.4535 18.8203C19.4535 19.5969 19.5238 20.3264 19.6661 21.0083C19.8067 21.6902 20.042 22.2851 20.3714 22.7942C20.7013 23.3027 21.1434 23.7072 21.6976 24.0058C22.2524 24.305 22.942 24.4543 23.7686 24.4543C24.5215 24.4543 25.1756 24.3186 25.7298 24.0452C26.2846 23.773 26.7395 23.3897 27.0956 22.8965C27.4511 22.4033 27.7119 21.816 27.8798 21.1341C28.0471 20.4522 28.1314 19.7021 28.1314 18.8832Z" fill="currentColor"/>\n<path d="M46.5893 7.33721C46.5893 7.53649 46.5782 7.70991 46.5573 7.85629C46.537 8.00325 46.5039 8.12141 46.4562 8.21018C46.4098 8.30012 46.3534 8.36537 46.286 8.40711C46.2175 8.45003 46.1425 8.47001 46.06 8.47001H40.4001V26.127C40.4001 26.211 40.3792 26.2845 40.3373 26.3474C40.2961 26.4103 40.2235 26.4603 40.1195 26.4967C40.0161 26.5332 39.8784 26.5649 39.707 26.5914C39.5362 26.6173 39.3207 26.6308 39.0622 26.6308C38.813 26.6308 38.6009 26.6173 38.4243 26.5914C38.2483 26.5649 38.1077 26.5332 38.0049 26.4967C37.9015 26.4603 37.8283 26.4103 37.7871 26.3474C37.7452 26.2845 37.7243 26.211 37.7243 26.127V8.47001H32.0644C31.9813 8.47001 31.9063 8.45003 31.8384 8.40711C31.771 8.36537 31.7164 8.30012 31.6751 8.21018C31.6339 8.12141 31.5996 8.00325 31.5741 7.85629C31.5479 7.70991 31.5357 7.53649 31.5357 7.33721C31.5357 7.13792 31.5479 6.96156 31.5741 6.8099C31.5996 6.65764 31.6339 6.53419 31.6751 6.44013C31.7164 6.34549 31.771 6.27729 31.8384 6.23497C31.9063 6.19441 31.9813 6.17265 32.0644 6.17265H46.06C46.1425 6.17265 46.2175 6.19441 46.286 6.23497C46.3534 6.27729 46.4098 6.34549 46.4562 6.44013C46.5039 6.53419 46.537 6.65764 46.5573 6.8099C46.5782 6.96156 46.5893 7.13792 46.5893 7.33721Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M110.821 8.48353H111.182V7.85864H111.354C111.553 7.85864 111.648 7.93565 111.676 8.10848C111.684 8.13747 111.691 8.16525 111.698 8.19169C111.734 8.33251 111.76 8.43553 111.8 8.48353H112.19C112.151 8.43533 112.124 8.33951 112.076 8.09907C112.029 7.88744 111.942 7.76223 111.791 7.71461V7.69462C111.981 7.63701 112.114 7.50239 112.114 7.32016C112.114 7.17496 112.047 7.05033 111.962 6.98273C111.847 6.9063 111.715 6.8581 111.42 6.8581C111.163 6.8581 110.963 6.88632 110.821 6.91512V8.48353ZM111.363 7.59822H111.192V7.14674C111.23 7.13616 111.296 7.12734 111.392 7.12734C111.62 7.12734 111.724 7.22375 111.724 7.36836C111.724 7.53179 111.562 7.59822 111.363 7.59822Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M113.026 7.66641C113.026 6.78991 112.333 6.08859 111.439 6.08859H111.429C110.536 6.08859 109.823 6.78991 109.823 7.66641C109.823 8.56054 110.536 9.25363 111.429 9.25363C112.333 9.25363 113.026 8.56054 113.026 7.66641ZM110.222 7.66641C110.222 6.97391 110.736 6.40604 111.42 6.40604H111.429C112.124 6.40604 112.628 6.97391 112.628 7.66641C112.628 8.36831 112.124 8.93619 111.439 8.92619C110.736 8.92619 110.222 8.36831 110.222 7.66641Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M114.531 26.1349C114.524 25.9932 114.48 25.8074 114.398 25.5764L107.649 6.66023C107.607 6.54501 107.55 6.44742 107.478 6.36865C107.405 6.29046 107.301 6.2305 107.166 6.18876C107.032 6.14644 106.856 6.11704 106.638 6.10117C106.42 6.08647 106.145 6.07766 105.813 6.07766C105.503 6.07766 105.246 6.08647 105.044 6.10117C104.841 6.11704 104.675 6.14644 104.546 6.18876C104.416 6.2305 104.318 6.28811 104.251 6.36101C104.183 6.43449 104.129 6.52972 104.087 6.64435L97.3377 25.5611C97.2552 25.791 97.211 25.9779 97.2058 26.119C97.2006 26.2607 97.2366 26.3688 97.3144 26.4423C97.3929 26.5158 97.5271 26.5652 97.7193 26.5916C97.911 26.6175 98.1568 26.6304 98.4583 26.6304C98.7482 26.6304 98.9834 26.6198 99.1653 26.5993C99.3465 26.5775 99.4865 26.544 99.5853 26.497C99.6835 26.4494 99.759 26.3923 99.8107 26.3236C99.8624 26.256 99.9036 26.1748 99.935 26.0796L101.584 21.1857H109.95L111.676 26.1431C111.717 26.2372 111.761 26.3165 111.809 26.3788C111.855 26.4423 111.928 26.4923 112.026 26.5281C112.125 26.5652 112.27 26.5916 112.462 26.6069C112.654 26.6228 112.91 26.6304 113.232 26.6304C113.552 26.6304 113.809 26.6198 114.002 26.5993C114.193 26.5775 114.33 26.5311 114.413 26.4576C114.496 26.3841 114.535 26.2765 114.531 26.1349ZM105.72 8.8794H105.736L109.25 19.0294H102.252L105.72 8.8794Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M95.2737 26.348C95.3051 26.2851 95.3202 26.211 95.3202 26.1269C95.3202 26.0429 95.2993 25.9247 95.2586 25.7724C95.2162 25.6214 95.1232 25.3557 94.978 24.9782L93.1748 20.4935C92.9668 19.9797 92.7589 19.5176 92.5521 19.1085C92.3441 18.6987 92.1245 18.3372 91.8915 18.0227C91.658 17.7082 91.4071 17.4378 91.1375 17.212C90.8674 16.9857 90.567 16.8005 90.2347 16.653C90.8261 16.4431 91.3606 16.1868 91.8369 15.8817C92.3133 15.5784 92.7228 15.218 93.065 14.8041C93.4072 14.3897 93.6692 13.913 93.851 13.3721C94.0317 12.8319 94.1229 12.2211 94.1229 11.5392C94.1229 10.8355 94.0224 10.193 93.8191 9.6104C93.6169 9.02901 93.3137 8.51169 92.9099 8.06139C92.5056 7.60991 92.0048 7.23721 91.41 6.94328C90.8128 6.64994 90.1267 6.43537 89.3488 6.2984C89.0787 6.26724 88.7755 6.23844 88.4391 6.21198C88.1016 6.18553 87.6798 6.1726 87.1715 6.1726H82.8947C82.656 6.1726 82.4312 6.25372 82.2185 6.41656C82.0059 6.5794 81.8996 6.86451 81.8996 7.27425V26.1269C81.8996 26.211 81.9205 26.2851 81.9618 26.348C82.003 26.4103 82.0756 26.4597 82.1796 26.4973C82.2836 26.5331 82.4207 26.5655 82.5915 26.5913C82.7629 26.6178 82.9772 26.6301 83.2369 26.6301C83.496 26.6301 83.7115 26.6178 83.8829 26.5913C84.0531 26.5655 84.1879 26.5331 84.286 26.4973C84.386 26.4597 84.458 26.4103 84.5039 26.348C84.5504 26.2851 84.5742 26.211 84.5742 26.1269V17.456H86.3629C86.9746 17.456 87.4974 17.5471 87.9337 17.7317C88.3688 17.9145 88.7476 18.172 89.0688 18.5018C89.3895 18.8333 89.6678 19.2266 89.9007 19.6828C90.1337 20.139 90.3591 20.6404 90.5769 21.186L92.4277 25.9853C92.4684 26.1111 92.5189 26.2157 92.5753 26.3003C92.6322 26.3838 92.713 26.4502 92.8164 26.4973C92.9204 26.5443 93.0575 26.5784 93.2283 26.5996C93.3996 26.6201 93.6198 26.6301 93.8894 26.6301C94.2007 26.6301 94.4494 26.6201 94.6358 26.5996C94.8235 26.5784 94.9681 26.5467 95.0715 26.5049C95.1749 26.4626 95.2423 26.4103 95.2737 26.348ZM90.7634 9.79969C91.1166 10.3505 91.2926 11.0248 91.2926 11.8225C91.2926 12.3151 91.2124 12.7713 91.0515 13.1905C90.8906 13.6108 90.6391 13.9759 90.2975 14.2845C89.9553 14.5949 89.5272 14.8359 89.0148 15.0087C88.5018 15.1821 87.8919 15.268 87.1866 15.268H84.5742V8.40705H86.8299C87.3574 8.40705 87.7856 8.42292 88.1132 8.45467C88.4391 8.48524 88.7313 8.53873 88.991 8.61222C89.82 8.85265 90.4119 9.24946 90.7634 9.79969Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M78.2436 26.348C78.2744 26.2851 78.2901 26.211 78.2901 26.1275C78.2901 26.0434 78.2697 25.9247 78.2279 25.773C78.1861 25.6214 78.0937 25.3562 77.9473 24.9782L76.1441 20.4929C75.9362 19.9797 75.7293 19.5182 75.522 19.109C75.3146 18.6987 75.0944 18.3378 74.8609 18.0227C74.6273 17.7082 74.3764 17.4378 74.1068 17.2126C73.8373 16.9863 73.5364 16.8005 73.2052 16.6536C73.796 16.4431 74.3299 16.1868 74.8068 15.8817C75.2832 15.5784 75.6928 15.2186 76.0355 14.8041C76.3777 14.3897 76.6385 13.913 76.8209 13.3721C77.001 12.8319 77.0922 12.2211 77.0922 11.5392C77.0922 10.8361 76.9917 10.1936 76.7895 9.6104C76.5868 9.02842 76.2841 8.51169 75.8798 8.06139C75.4755 7.60991 74.9753 7.23721 74.3793 6.94328C73.7821 6.64994 73.0966 6.43537 72.3187 6.2984C72.0492 6.26724 71.7454 6.23844 71.4084 6.21139C71.0709 6.18553 70.6491 6.1726 70.1414 6.1726H65.8623C65.6236 6.1726 65.3987 6.25372 65.1861 6.41656C64.9741 6.57881 64.8678 6.86451 64.8678 7.27483V26.1275C64.8678 26.211 64.8887 26.2851 64.9299 26.348C64.9706 26.4103 65.0432 26.4602 65.1478 26.4973C65.2512 26.5331 65.3889 26.5649 65.5597 26.5913C65.731 26.6178 65.946 26.6301 66.2045 26.6301C66.4636 26.6301 66.6803 26.6178 66.8528 26.5913C67.023 26.5649 67.1578 26.5331 67.2565 26.4973C67.3553 26.4602 67.4279 26.4103 67.4744 26.348C67.5209 26.2851 67.5447 26.211 67.5447 26.1275V17.4566H69.3334C69.9445 17.4566 70.4673 17.5471 70.903 17.7317C71.3381 17.9151 71.7169 18.172 72.0381 18.5024C72.36 18.8333 72.6377 19.2272 72.8706 19.6828C73.1036 20.139 73.3295 20.641 73.5474 21.186L75.3976 25.9858C75.4389 26.1116 75.4888 26.2163 75.5452 26.3003C75.6027 26.3844 75.6829 26.4502 75.7863 26.4973C75.8903 26.5443 76.0274 26.5784 76.1982 26.5996C76.3695 26.6201 76.5891 26.6301 76.8598 26.6301C77.1701 26.6301 77.4193 26.6201 77.6052 26.5996C77.7928 26.5784 77.9375 26.5467 78.0409 26.5049C78.1448 26.4626 78.2116 26.4103 78.2436 26.348ZM73.7333 9.80028C74.0859 10.3505 74.2619 11.0254 74.2619 11.8219C74.2619 12.3157 74.1818 12.7713 74.0208 13.1911C73.8605 13.6114 73.609 13.9753 73.2674 14.2845C72.9252 14.5949 72.4971 14.8359 71.9841 15.0093C71.4712 15.1821 70.8618 15.268 70.1571 15.268H67.5447V8.40705H69.7993C70.3279 8.40705 70.7549 8.42351 71.0825 8.45467C71.4084 8.48583 71.7006 8.53815 71.9603 8.61163C72.7899 8.85324 73.3812 9.24887 73.7333 9.80028Z" fill="currentColor"/>\n<path d="M60.8695 25.9146C60.8904 25.7736 60.9009 25.6072 60.9009 25.4185C60.9009 25.2092 60.8904 25.0329 60.8695 24.8918C60.8486 24.7495 60.8131 24.6349 60.7614 24.5461C60.7091 24.4568 60.6493 24.3909 60.5819 24.3492C60.5151 24.3069 60.4396 24.2857 60.3565 24.2857H52.3798V17.0003H59.1296C59.2127 17.0003 59.287 16.9809 59.3544 16.9445C59.4212 16.9075 59.4782 16.8475 59.5246 16.7634C59.5717 16.6794 59.6054 16.5694 59.6257 16.4331C59.6466 16.2967 59.6565 16.1338 59.6565 15.9451C59.6565 15.7458 59.6466 15.573 59.6257 15.4255C59.6054 15.2791 59.5717 15.1644 59.5246 15.0792C59.4782 14.9963 59.4212 14.9299 59.3544 14.8829C59.287 14.8358 59.2127 14.8117 59.1296 14.8117H52.3798V8.42287H60.2473C60.331 8.42287 60.4053 8.4017 60.4739 8.35997C60.5413 8.31823 60.5953 8.25239 60.6371 8.16303C60.6778 8.07427 60.7121 7.95846 60.7382 7.81737C60.7638 7.6757 60.7765 7.51051 60.7765 7.32122C60.7765 7.11135 60.7638 6.93617 60.7382 6.79391C60.7121 6.65223 60.6778 6.53466 60.6371 6.44001C60.5953 6.34596 60.5413 6.27718 60.4739 6.23544C60.4053 6.1937 60.331 6.17254 60.2473 6.17254H50.7004C50.4622 6.17254 50.2374 6.25366 50.0242 6.41591C49.8115 6.57934 49.7058 6.86504 49.7058 7.27419V25.4344C49.7058 25.8447 49.8115 26.1292 50.0242 26.2921C50.2374 26.4555 50.4622 26.536 50.7004 26.536H60.3565C60.4396 26.536 60.5151 26.5154 60.5819 26.4731C60.6493 26.432 60.7091 26.3632 60.7614 26.2685C60.8131 26.1745 60.8486 26.0563 60.8695 25.9146Z" fill="currentColor"/>\n<path fill-rule="evenodd" clip-rule="evenodd" d="M19.7645 8.38259C19.2173 8.38494 19.2202 7.59838 19.2191 7.278C19.2173 6.93704 19.2173 6.17282 19.7645 6.17282H27.8133C28.3617 6.17282 28.3617 6.93704 28.3594 7.278C28.3576 7.59838 28.3617 8.38494 27.8133 8.38259H19.7645Z" fill="currentColor"/>\n</svg>';
+  // Same Feather-style set as the Card Sort Tool: 16px, 2px round stroke.
+  var ICON_ATTRS = 'width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  var SUN_ICON = '<svg ' + ICON_ATTRS + '><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var MOON_ICON = '<svg ' + ICON_ATTRS + '><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var KEYBOARD_ICON = '<svg ' + ICON_ATTRS + '><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/></svg>';
+  var DEFAULT_CONFIG = {
+  "buckets": [
+    {
+      "code": "A",
+      "name": "Brand or generic catalogue",
+      "definition": "Brand name or catch-all words with no product named. A brand prefix on a named item is B, tagged brand_prefix."
+    },
+    {
+      "code": "B",
+      "name": "Product line or blend",
+      "definition": "A name that resolves to a family: blends, supplement lines and abbreviations or partials of them."
+    },
+    {
+      "code": "C",
+      "name": "Specific product",
+      "definition": "A line plus a format, size or full title."
+    },
+    {
+      "code": "D",
+      "name": "Single oil, botanical or ingredient",
+      "definition": "One oil, botanical or supplement ingredient with no format or line. Translations belong here, tagged by language."
+    },
+    {
+      "code": "E",
+      "name": "Product type, format or area",
+      "definition": "A format or body-area word."
+    },
+    {
+      "code": "F",
+      "name": "Diffuser and hardware",
+      "definition": "Diffusers and related hardware in any language."
+    },
+    {
+      "code": "G",
+      "name": "Kit, bundle or enrolment",
+      "definition": "A bundle, kit or enrolment pack, named or generic, in any language."
+    },
+    {
+      "code": "H",
+      "name": "Promotion, offer or sample",
+      "definition": "Offer, campaign or seasonal terms."
+    },
+    {
+      "code": "I",
+      "name": "Benefit, symptom or wellness need",
+      "definition": "A desired outcome or physical state."
+    },
+    {
+      "code": "J",
+      "name": "Programme, event or account",
+      "definition": "Anything about the relationship with the business rather than the catalogue."
+    },
+    {
+      "code": "K",
+      "name": "Person or advocate name",
+      "definition": "A personal or business name, probably an advocate or leader. Not yet identified."
+    },
+    {
+      "code": "L",
+      "name": "Broad, fragment or unresolved",
+      "definition": "Too broad or short for one right answer, or a term not yet resolved."
+    },
+    {
+      "code": "M",
+      "name": "Catalogue label, SKU or pasted text",
+      "definition": "Product titles, item codes, campaign labels or page text pasted into the box."
+    },
+    {
+      "code": "N",
+      "name": "Usage, safety and education",
+      "definition": "How-to, safety, dilution or reassurance questions."
+    }
+  ],
+  "items": [
+    {
+      "id": "Q01",
+      "text": "doterra essential oils",
+      "analyst": "A",
+      "source": "head",
+      "events": 1800,
+      "note": ""
+    },
+    {
+      "id": "Q02",
+      "text": "디퓨저",
+      "language": "Korean",
+      "gloss": "diffuser",
+      "analyst": "F",
+      "source": "head",
+      "events": 1700,
+      "note": ""
+    },
+    {
+      "id": "Q03",
+      "text": "doterra",
+      "analyst": "A",
+      "source": "head",
+      "events": 11000,
+      "note": ""
+    },
+    {
+      "id": "Q04",
+      "text": "Beadlets",
+      "analyst": "E",
+      "source": "head",
+      "events": 2100,
+      "note": ""
+    },
+    {
+      "id": "Q05",
+      "text": "Набор",
+      "language": "Russian",
+      "gloss": "set, kit",
+      "analyst": "G",
+      "source": "head",
+      "events": 1200,
+      "note": ""
+    },
+    {
+      "id": "Q06",
+      "text": "Bogo",
+      "analyst": "H",
+      "source": "head",
+      "events": 3200,
+      "note": ""
+    },
+    {
+      "id": "Q07",
+      "text": "Бриз",
+      "language": "Russian",
+      "gloss": "breeze",
+      "analyst": "L",
+      "source": "head",
+      "events": 1000,
+      "note": "Russian \"breeze\": unresolved, possibly Breathe or Easy Air"
+    },
+    {
+      "id": "Q08",
+      "text": "Marketplace",
+      "analyst": "J",
+      "source": "zero",
+      "events": 124,
+      "note": "Programme or service"
+    },
+    {
+      "id": "Q09",
+      "text": "딥블루",
+      "language": "Korean",
+      "gloss": "Deep Blue (the English name, spelled in Korean)",
+      "analyst": "B",
+      "source": "head",
+      "events": 1800,
+      "note": ""
+    },
+    {
+      "id": "Q10",
+      "text": "Deep Blue Rub",
+      "analyst": "C",
+      "source": "head",
+      "events": 2500,
+      "note": ""
+    },
+    {
+      "id": "Q11",
+      "text": "US 30ct VMG+ Stick Pack",
+      "analyst": "M",
+      "source": "tail",
+      "events": 1,
+      "note": "catalogue label"
+    },
+    {
+      "id": "Q12",
+      "text": "Pb assist",
+      "analyst": "C",
+      "source": "head",
+      "events": 893,
+      "note": ""
+    },
+    {
+      "id": "Q13",
+      "text": "Emotional Aromatherapy Touch Kit",
+      "analyst": "G",
+      "source": "tail",
+      "events": 1,
+      "note": ""
+    },
+    {
+      "id": "Q14",
+      "text": "mint",
+      "analyst": "D",
+      "source": "head",
+      "events": 628,
+      "note": ""
+    },
+    {
+      "id": "Q15",
+      "text": "Collagen",
+      "analyst": "D",
+      "source": "head",
+      "events": 972,
+      "note": ""
+    },
+    {
+      "id": "Q16",
+      "text": "On Guard Natural Whitening Toothpaste",
+      "analyst": "C",
+      "source": "head",
+      "events": 800,
+      "note": ""
+    },
+    {
+      "id": "Q17",
+      "text": "dōTERRA On Guard®-31180001",
+      "analyst": "M",
+      "source": "tail",
+      "events": 1,
+      "note": "product name with item number"
+    },
+    {
+      "id": "Q18",
+      "text": "Peppermint Beadlets",
+      "analyst": "C",
+      "source": "head",
+      "events": 2200,
+      "note": ""
+    },
+    {
+      "id": "Q19",
+      "text": "ミネラル",
+      "language": "Japanese",
+      "gloss": "mineral",
+      "analyst": "D",
+      "source": "head",
+      "events": 2100,
+      "note": "Japanese \"mineral\": ingredient or Sun mineral product"
+    },
+    {
+      "id": "Q20",
+      "text": "balance",
+      "analyst": "B",
+      "source": "head",
+      "events": 2500,
+      "note": "Blend vs ordinary word"
+    },
+    {
+      "id": "Q21",
+      "text": "LLV",
+      "analyst": "B",
+      "source": "head",
+      "events": 663,
+      "note": ""
+    },
+    {
+      "id": "Q22",
+      "text": "Air",
+      "analyst": "E",
+      "source": "head",
+      "events": 1100,
+      "note": "Respiratory blend area vs word"
+    },
+    {
+      "id": "Q23",
+      "text": "Difusor",
+      "language": "Spanish or Portuguese",
+      "gloss": "diffuser",
+      "analyst": "F",
+      "source": "head",
+      "events": 4000,
+      "note": ""
+    },
+    {
+      "id": "Q24",
+      "text": "Weight loss",
+      "analyst": "I",
+      "source": "head",
+      "events": 579,
+      "note": ""
+    },
+    {
+      "id": "Q25",
+      "text": "Shinrin-Yoku",
+      "analyst": "N",
+      "source": "tail",
+      "events": 1,
+      "note": "practice/education"
+    },
+    {
+      "id": "Q26",
+      "text": "Diffuser",
+      "analyst": "F",
+      "source": "head",
+      "events": 6700,
+      "note": ""
+    },
+    {
+      "id": "Q27",
+      "text": "Sleep",
+      "analyst": "I",
+      "source": "head",
+      "events": 1500,
+      "note": ""
+    },
+    {
+      "id": "Q28",
+      "text": "舒緩",
+      "language": "Chinese (Traditional)",
+      "gloss": "to soothe, to relieve",
+      "analyst": "I",
+      "source": "head",
+      "events": 800,
+      "note": ""
+    },
+    {
+      "id": "Q29",
+      "text": "Calm",
+      "analyst": "I",
+      "source": "head",
+      "events": 888,
+      "note": ""
+    },
+    {
+      "id": "Q30",
+      "text": "Convention",
+      "analyst": "J",
+      "source": "head",
+      "events": 782,
+      "note": ""
+    },
+    {
+      "id": "Q31",
+      "text": "Soap",
+      "analyst": "E",
+      "source": "head",
+      "events": 2800,
+      "note": ""
+    },
+    {
+      "id": "Q32",
+      "text": "Wild Orange Product Image",
+      "analyst": "M",
+      "source": "tail",
+      "events": 1,
+      "note": "pasted page text"
+    },
+    {
+      "id": "Q33",
+      "text": "Boho",
+      "analyst": "L",
+      "source": "zero",
+      "events": 225,
+      "note": "Unidentified"
+    },
+    {
+      "id": "Q34",
+      "text": "Peppermint",
+      "analyst": "D",
+      "source": "head",
+      "events": 11000,
+      "note": ""
+    },
+    {
+      "id": "Q35",
+      "text": "doterra products",
+      "analyst": "A",
+      "source": "head",
+      "events": 1900,
+      "note": ""
+    },
+    {
+      "id": "Q36",
+      "text": "Touch",
+      "analyst": "B",
+      "source": "head",
+      "events": 5100,
+      "note": "Touch product line vs ordinary word"
+    },
+    {
+      "id": "Q37",
+      "text": "Лаванда",
+      "language": "Russian",
+      "gloss": "lavender",
+      "analyst": "D",
+      "source": "head",
+      "events": 1600,
+      "note": ""
+    },
+    {
+      "id": "Q38",
+      "text": "On guard",
+      "analyst": "B",
+      "source": "head",
+      "events": 20000,
+      "note": ""
+    },
+    {
+      "id": "Q39",
+      "text": "Arnica",
+      "analyst": "D",
+      "source": "zero",
+      "events": 164,
+      "note": "Not found in catalogue"
+    },
+    {
+      "id": "Q40",
+      "text": "Bradley’s",
+      "analyst": "K",
+      "source": "zero",
+      "events": 477,
+      "note": "Unidentified; largest single zero-result term"
+    },
+    {
+      "id": "Q41",
+      "text": "Ingredients",
+      "analyst": "N",
+      "source": "tail",
+      "events": 1,
+      "note": "education-like"
+    },
+    {
+      "id": "Q42",
+      "text": "Kit",
+      "analyst": "G",
+      "source": "head",
+      "events": 5100,
+      "note": ""
+    },
+    {
+      "id": "Q43",
+      "text": "Zengest",
+      "analyst": "B",
+      "source": "head",
+      "events": 2300,
+      "note": ""
+    },
+    {
+      "id": "Q44",
+      "text": "Holiday",
+      "analyst": "H",
+      "source": "head",
+      "events": 689,
+      "note": ""
+    },
+    {
+      "id": "Q45",
+      "text": "Sun",
+      "analyst": "E",
+      "source": "head",
+      "events": 1500,
+      "note": "Sun line vs sun care area"
+    },
+    {
+      "id": "Q46",
+      "text": "AU/NZ Mid Autumn KOF 2026",
+      "analyst": "M",
+      "source": "tail",
+      "events": 1,
+      "note": "campaign/back-office label"
+    },
+    {
+      "id": "Q47",
+      "text": "Oils",
+      "analyst": "L",
+      "source": "head",
+      "events": 1700,
+      "note": ""
+    },
+    {
+      "id": "Q48",
+      "text": "Fractionated Coconut Oil",
+      "analyst": "C",
+      "source": "head",
+      "events": 756,
+      "note": ""
+    },
+    {
+      "id": "Q49",
+      "text": "Samples",
+      "analyst": "H",
+      "source": "head",
+      "events": 831,
+      "note": ""
+    },
+    {
+      "id": "Q50",
+      "text": "Headache",
+      "analyst": "I",
+      "source": "zero",
+      "events": 261,
+      "note": "Benefit or symptom"
+    }
+  ],
+  "kappaTarget": 0.61,
+  "specificTarget": 0.6,
+  "shuffle": true
+};
+
+  var NONE = "NONE";
+  var NONE_LABEL = "None of these fit";
+
+  // ---------- State ----------
+  var view = "session";            // session | ledger | content
+  var phase = "setup";             // setup | brief | sorting | review | debrief | done
+  var theme = "light";
+  var config = clone(DEFAULT_CONFIG);
+  var contentVersion = 1;
+  var contentUpdatedAt = null;
+
+  var participant = "", practiceRun = false, familiarity = 0;
+  var setupError = null;
+  var order = [], idx = 0, answers = {}, ms = {}, itemEnter = 0;
+  var debrief = { hardest: [], confidence: 0, notes: "" };
+  var sessionDocId = null, sessionStartedAt = null, sessionContentVersion = null;
+  var doneStatus = "complete";
+  var reachedReview = false;
+  var confirmEnd = false, confirmDiscard = null, showShortcuts = false, exportOpen = null;
+
+  var ledgerDocs = [];
+  var pairA = null, pairB = null;
+  var editingNotes = {};
+  var contentDraft = null, contentError = null, contentWarning = null, kDraft = null, sDraft = null, shuffleDraft = null;
+
+  var db = null, dbReady = false, downloads = null, ledgerUnsub = null, configUnsub = null;
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  // ---------- DOM helper ----------
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v == null || v === false) return;
+      if (k === "class") n.className = v;
+      else if (k === "text") n.textContent = v;
+      else if (k === "html") n.innerHTML = v;
+      else if (k === "value") n.value = v;
+      else if (k === "checked") n.checked = !!v;
+      else if (k === "disabled") n.disabled = true;
+      else if (k.slice(0, 2) === "on") n.addEventListener(k.slice(2), v);
+      else n.setAttribute(k, v === true ? "" : v);
+    });
+    (kids || []).forEach(function (c) {
+      if (c == null || c === false) return;
+      n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    });
+    return n;
+  }
+  function plural(n, w, s) { return n + " " + w + (n === 1 ? "" : (s || "s")); }
+  function pct(x, dp) { return x == null ? "n/a" : (x * 100).toFixed(dp == null ? 0 : dp) + "%"; }
+  function num(x, dp) { return x == null ? "n/a" : x.toFixed(dp == null ? 2 : dp); }
+  function fmtSecs(msTotal) {
+    var s = Math.round(msTotal / 1000), m = Math.floor(s / 60); s = s % 60;
+    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+  }
+  function normaliseName(s) { return String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " "); }
+  function newId() { return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function bucketByCode(code) {
+    for (var i = 0; i < config.buckets.length; i++) if (config.buckets[i].code === code) return config.buckets[i];
+    return null;
+  }
+  function bucketLabel(code) {
+    if (code === NONE) return NONE_LABEL;
+    var b = bucketByCode(code);
+    return b ? code + " " + b.name : (code || "none");
+  }
+  function itemById(id) {
+    for (var i = 0; i < config.items.length; i++) if (config.items[i].id === id) return config.items[i];
+    return null;
+  }
+  function shuffled(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // ---------- Storage (Artifact db, localStorage fallback) ----------
+  var LOCAL_LEDGER_KEY = "querySorting.ledger.v1";
+  var LOCAL_CONTENT_KEY = "querySorting.content.v1";
+  var localStorageOk = false;
+  try {
+    window.localStorage.setItem("__qs_probe__", "1");
+    window.localStorage.removeItem("__qs_probe__");
+    localStorageOk = true;
+  } catch (e) { localStorageOk = false; }
+
+  function storageMode() {
+    if (dbReady && db) return "shared";
+    if (localStorageOk) return "local";
+    return "none";
+  }
+  function localLedgerRead() {
+    try {
+      var docs = JSON.parse(window.localStorage.getItem(LOCAL_LEDGER_KEY) || "[]");
+      return Array.isArray(docs) ? docs : [];
+    } catch (e) { return []; }
+  }
+  function localLedgerWrite(docs) {
+    try { window.localStorage.setItem(LOCAL_LEDGER_KEY, JSON.stringify(docs)); } catch (e) {}
+  }
+  function sortLedger(docs) {
+    docs.sort(function (a, b) {
+      var ta = a.updatedAt || "", tb = b.updatedAt || "";
+      return ta === tb ? 0 : (ta < tb ? 1 : -1);
+    });
+    return docs;
+  }
+  function refreshLocalLedger() { ledgerDocs = sortLedger(localLedgerRead()); }
+
+  function writeSession(id, payload) {
+    if (dbReady && db) {
+      db.collection("sessions").doc(id).set(payload).catch(function () {});
+    } else if (localStorageOk) {
+      var docs = localLedgerRead().filter(function (d) { return d._id !== id; });
+      docs.push(Object.assign({ _id: id }, payload));
+      localLedgerWrite(docs);
+      refreshLocalLedger();
+    }
+  }
+  function deleteSession(id) {
+    if (dbReady && db) {
+      db.collection("sessions").doc(id).delete().catch(function () {});
+    } else if (localStorageOk) {
+      localLedgerWrite(localLedgerRead().filter(function (d) { return d._id !== id; }));
+      refreshLocalLedger();
+    }
+  }
+  function patchSession(id, patch) {
+    if (dbReady && db) {
+      db.collection("sessions").doc(id).update(patch).catch(function () {});
+    } else if (localStorageOk) {
+      localLedgerWrite(localLedgerRead().map(function (d) { return d._id === id ? Object.assign(d, patch) : d; }));
+      refreshLocalLedger();
+    }
+  }
+
+  function subscribeLedger() {
+    if (dbReady && db) {
+      if (ledgerUnsub) return;
+      ledgerUnsub = db.collection("sessions").orderBy("updatedAt", "desc").limit(200).onSnapshot(function (snap) {
+        ledgerDocs = snap.docs.map(function (d) {
+          var data = d.data();
+          return data ? Object.assign({ _id: d.id }, data) : null;
+        }).filter(Boolean);
+        if (view === "ledger" || phase === "setup") render();
+      }, function () {});
+      return;
+    }
+    if (localStorageOk) refreshLocalLedger();
+  }
+
+  function applyConfigData(data) {
+    if (data && Array.isArray(data.buckets) && Array.isArray(data.items) && data.items.length) {
+      config = {
+        buckets: data.buckets, items: data.items,
+        kappaTarget: typeof data.kappaTarget === "number" ? data.kappaTarget : 0.61,
+        specificTarget: typeof data.specificTarget === "number" ? data.specificTarget : 0.6,
+        shuffle: data.shuffle !== false
+      };
+    }
+    contentVersion = (data && data.version) || 1;
+    contentUpdatedAt = (data && data.updatedAt) || null;
+  }
+  function subscribeConfig() {
+    if (dbReady && db) {
+      if (configUnsub) return;
+      configUnsub = db.doc("config/content").onSnapshot(function (snap) {
+        applyConfigData(snap.exists ? snap.data() : null);
+        render();
+      }, function () {});
+      return;
+    }
+    if (localStorageOk) {
+      try {
+        var raw = window.localStorage.getItem(LOCAL_CONTENT_KEY);
+        applyConfigData(raw ? JSON.parse(raw) : null);
+      } catch (e) {}
+    }
+  }
+  function initCapabilities() {
+    if (window.claude && window.claude.use) {
+      window.claude.use("db").then(function (d) {
+        db = d; dbReady = !!d; subscribeConfig(); subscribeLedger(); render();
+      }).catch(function () { subscribeConfig(); subscribeLedger(); render(); });
+      window.claude.use("downloads").then(function (d) { downloads = d; render(); }).catch(function () {});
+    } else {
+      subscribeConfig();
+      subscribeLedger();
+    }
+  }
+
+  // ---------- Session lifecycle ----------
+  function sessionPayload(status) {
+    var now = new Date().toISOString();
+    var total = 0;
+    Object.keys(ms).forEach(function (k) { total += ms[k] || 0; });
+    return {
+      participant: participant, participantKey: normaliseName(participant),
+      practiceRun: practiceRun, familiarity: familiarity,
+      status: status, contentVersion: sessionContentVersion,
+      startedAt: sessionStartedAt, updatedAt: now,
+      finishedAt: status === "in-progress" ? null : now,
+      order: order, answers: answers, ms: ms, totalMs: total,
+      debrief: debrief, notes: ""
+    };
+  }
+  function persist(status) {
+    if (!sessionDocId) return;
+    var existing = null;
+    ledgerDocs.forEach(function (d) { if (d._id === sessionDocId) existing = d; });
+    var p = sessionPayload(status || "in-progress");
+    if (existing && existing.notes) p.notes = existing.notes;
+    writeSession(sessionDocId, p);
+  }
+  function commitTime() {
+    if (phase === "sorting" && itemEnter && order[idx]) {
+      var id = order[idx];
+      ms[id] = (ms[id] || 0) + (Date.now() - itemEnter);
+    }
+    itemEnter = 0;
+  }
+  function enterItem() { itemEnter = Date.now(); }
+
+  function startSession() {
+    var name = participant.trim();
+    if (!name) { setupError = "Enter a participant name."; return render(); }
+    var key = normaliseName(name), clash = false;
+    ledgerDocs.forEach(function (d) { if (d.participantKey === key) clash = true; });
+    if (clash) { setupError = "That name is already in the ledger. Names must be unique so the two sorts can be told apart."; return render(); }
+    if (!(familiarity >= 1 && familiarity <= 5)) { setupError = "Record how familiar this person is with the doTERRA range (1 to 5)."; return render(); }
+    setupError = null;
+    participant = name;
+    var ids = config.items.map(function (i) { return i.id; });
+    order = config.shuffle ? shuffled(ids) : ids;
+    idx = 0; answers = {}; ms = {};
+    debrief = { hardest: [], confidence: 0, notes: "" };
+    sessionDocId = newId();
+    sessionStartedAt = new Date().toISOString();
+    sessionContentVersion = contentVersion;
+    reachedReview = false;
+    showShortcuts = false;
+    phase = "brief";
+    persist("in-progress");
+    render();
+  }
+  function resumeSession(doc) {
+    participant = doc.participant; practiceRun = !!doc.practiceRun;
+    familiarity = doc.familiarity || 0;
+    order = (doc.order || []).filter(function (id) { return !!itemById(id); });
+    answers = doc.answers || {}; ms = doc.ms || {};
+    debrief = doc.debrief || { hardest: [], confidence: 0, notes: "" };
+    sessionDocId = doc._id; sessionStartedAt = doc.startedAt; sessionContentVersion = doc.contentVersion;
+    idx = 0;
+    for (var i = 0; i < order.length; i++) { if (!answers[order[i]] || !answers[order[i]].b) { idx = i; break; } idx = i; }
+    reachedReview = answeredCount() === order.length;
+    showShortcuts = false;
+    phase = "sorting";
+    enterItem();
+    render();
+  }
+  function resetToSetup() {
+    participant = ""; practiceRun = false; familiarity = 0;
+    order = []; idx = 0; answers = {}; ms = {}; sessionDocId = null; phase = "setup";
+    confirmEnd = false; reachedReview = false; setupError = null; doneStatus = "complete";
+    render();
+  }
+  function answeredCount() {
+    var n = 0;
+    order.forEach(function (id) { if (answers[id] && answers[id].b) n++; });
+    return n;
+  }
+  function currentAnswer() {
+    var id = order[idx];
+    if (!answers[id]) answers[id] = { b: null, u: false, f: false, n: "" };
+    return answers[id];
+  }
+  function goTo(i) {
+    commitTime();
+    idx = i; phase = "sorting"; confirmEnd = false;
+    enterItem();
+    render();
+  }
+  function selectBucket(code) {
+    currentAnswer().b = code;
+    persist("in-progress");
+    render();
+  }
+  function next() {
+    var a = currentAnswer();
+    if (!a.b || (a.b === NONE && !a.n.trim())) return;
+    commitTime();
+    persist("in-progress");
+    if (idx < order.length - 1) { idx++; enterItem(); }
+    else { phase = "review"; reachedReview = true; }
+    render();
+  }
+  function back() {
+    if (idx === 0) return;
+    commitTime();
+    idx--; enterItem();
+    render();
+  }
+  function endEarly() {
+    commitTime();
+    doneStatus = "ended-early";
+    persist("ended-early");
+    phase = "done"; confirmEnd = false;
+    render();
+  }
+  function finish() {
+    doneStatus = "complete";
+    persist("complete");
+    phase = "done";
+    render();
+  }
+
+  // ---------- Statistics ----------
+  function cohen(pairs) {
+    var n = pairs.length;
+    if (!n) return { n: 0, po: null, pe: null, k: null };
+    var agree = 0, ca = {}, cb = {};
+    pairs.forEach(function (p) {
+      if (p[0] === p[1]) agree++;
+      ca[p[0]] = (ca[p[0]] || 0) + 1; cb[p[1]] = (cb[p[1]] || 0) + 1;
+    });
+    var po = agree / n, pe = 0;
+    Object.keys(ca).forEach(function (k) { if (cb[k]) pe += (ca[k] / n) * (cb[k] / n); });
+    return { n: n, po: po, pe: pe, k: pe >= 1 ? null : (po - pe) / (1 - pe) };
+  }
+  // Deterministic, so the same two sorts always give the same interval.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function bootstrapKappa(pairs, iters) {
+    if (pairs.length < 5) return null;
+    var rnd = mulberry32(pairs.length * 7919 + 13), ks = [];
+    for (var i = 0; i < iters; i++) {
+      var s = [];
+      for (var j = 0; j < pairs.length; j++) s.push(pairs[Math.floor(rnd() * pairs.length)]);
+      var k = cohen(s).k;
+      if (k != null) ks.push(k);
+    }
+    if (ks.length < iters * 0.8) return null;
+    ks.sort(function (a, b) { return a - b; });
+    return { lo: ks[Math.floor(ks.length * 0.025)], hi: ks[Math.min(ks.length - 1, Math.floor(ks.length * 0.975))] };
+  }
+  function kappaBand(k) {
+    if (k == null) return "n/a";
+    if (k < 0) return "poor";
+    if (k <= 0.2) return "slight";
+    if (k <= 0.4) return "fair";
+    if (k <= 0.6) return "moderate";
+    if (k <= 0.8) return "substantial";
+    return "almost perfect";
+  }
+
+  function eligibleDocs(docs) {
+    return docs.filter(function (d) { return d.status === "complete" && !d.practiceRun; })
+      .sort(function (a, b) { return (a.startedAt || "") < (b.startedAt || "") ? -1 : 1; });
+  }
+  function docById(docs, id) {
+    for (var i = 0; i < docs.length; i++) if (docs[i]._id === id) return docs[i];
+    return null;
+  }
+
+  function analyse(a, b) {
+    var rows = [];
+    config.items.forEach(function (it) {
+      var x = a.answers && a.answers[it.id], y = b.answers && b.answers[it.id];
+      if (!x || !x.b || !y || !y.b) return;
+      rows.push({ item: it, a: x.b, b: y.b, an: it.analyst || "", ax: x, bx: y });
+    });
+    var pairs = rows.map(function (r) { return [r.a, r.b]; });
+    var overall = cohen(pairs);
+    var ci = bootstrapKappa(pairs, 2000);
+    var vsA = cohen(rows.filter(function (r) { return r.an; }).map(function (r) { return [r.a, r.an]; }));
+    var vsB = cohen(rows.filter(function (r) { return r.an; }).map(function (r) { return [r.b, r.an]; }));
+
+    var cats = {};
+    rows.forEach(function (r) { cats[r.a] = 1; cats[r.b] = 1; if (r.an) cats[r.an] = 1; });
+    var codes = config.buckets.map(function (x) { return x.code; });
+    var catList = codes.filter(function (c) { return cats[c]; });
+    if (cats[NONE]) catList.push(NONE);
+
+    var perBucket = catList.map(function (c) {
+      var nA = 0, nB = 0, both = 0, nAn = 0, aHit = 0, bHit = 0;
+      rows.forEach(function (r) {
+        if (r.a === c) nA++;
+        if (r.b === c) nB++;
+        if (r.a === c && r.b === c) both++;
+        if (r.an === c) { nAn++; if (r.a === c) aHit++; if (r.b === c) bHit++; }
+      });
+      return { code: c, nAn: nAn, nA: nA, nB: nB, both: both,
+        specific: (nA + nB) ? (2 * both) / (nA + nB) : null,
+        aHit: nAn ? aHit / nAn : null, bHit: nAn ? bHit / nAn : null };
+    });
+
+    var matrix = {};
+    rows.forEach(function (r) {
+      matrix[r.a] = matrix[r.a] || {};
+      matrix[r.a][r.b] = (matrix[r.a][r.b] || 0) + 1;
+    });
+    var confused = {};
+    rows.forEach(function (r) {
+      if (r.a === r.b) return;
+      var key = [r.a, r.b].sort().join("|");
+      confused[key] = confused[key] || { x: [r.a, r.b].sort()[0], y: [r.a, r.b].sort()[1], n: 0, items: [] };
+      confused[key].n++; confused[key].items.push(r.item.text);
+    });
+    var confusedList = Object.keys(confused).map(function (k) { return confused[k]; })
+      .sort(function (p, q) { return q.n - p.n; });
+
+    var head = rows.filter(function (r) { return r.item.source === "head"; });
+    var headEv = 0, headAgreeEv = 0;
+    head.forEach(function (r) { headEv += r.item.events; if (r.a === r.b) headAgreeEv += r.item.events; });
+
+    function flagged(r) { return r.ax.f || r.bx.f; }
+    var famRows = rows.filter(flagged), knownRows = rows.filter(function (r) { return !flagged(r); });
+
+    var raterSplit = rows.filter(function (r) { return r.a !== r.b; });
+    var bothOffAnalyst = rows.filter(function (r) { return r.a === r.b && r.an && r.a !== r.an; });
+
+    return {
+      rows: rows, n: rows.length, overall: overall, ci: ci, vsA: vsA, vsB: vsB,
+      perBucket: perBucket, matrix: matrix, catList: catList, confusedList: confusedList,
+      headN: head.length, eventWeighted: headEv ? headAgreeEv / headEv : null,
+      famN: famRows.length, famAgree: famRows.length ? cohen(famRows.map(function (r) { return [r.a, r.b]; })).po : null,
+      knownN: knownRows.length, knownAgree: knownRows.length ? cohen(knownRows.map(function (r) { return [r.a, r.b]; })).po : null,
+      raterSplit: raterSplit, bothOffAnalyst: bothOffAnalyst
+    };
+  }
+  function verdictFor(an) {
+    var t = config.kappaTarget;
+    if (an.overall.k == null) return { cls: "warn", text: "Kappa cannot be calculated (one rater used a single bucket for everything)." };
+    if (an.ci && an.ci.lo >= t) return { cls: "ok", text: "Holds: kappa " + num(an.overall.k) + " and even the low end of the interval (" + num(an.ci.lo) + ") meets the " + t + " target." };
+    if (an.overall.k >= t) return { cls: "warn", text: "Directional pass: kappa " + num(an.overall.k) + " meets the " + t + " target, but the interval (" + (an.ci ? num(an.ci.lo) + " to " + num(an.ci.hi) : "n/a") + ") crosses it. Two raters cannot settle this." };
+    return { cls: "fail", text: "Does not meet the target: kappa " + num(an.overall.k) + " is below " + t + ". Use the confusion list below to see which bucket definitions are being read differently." };
+  }
+
+  // ---------- Exports ----------
+  function csvCell(v) {
+    var s = v == null ? "" : String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function csvRow(arr) { return arr.map(csvCell).join(","); }
+  function ratingsCsv(docs) {
+    var out = [csvRow(["participant", "practice", "familiarity_1to5", "status", "content_version", "item_id", "query", "english_translation", "source", "head_events", "analyst_bucket", "bucket", "bucket_name", "unsure", "unfamiliar", "note", "seconds"])];
+    docs.forEach(function (d) {
+      (d.order || []).forEach(function (id) {
+        var a = d.answers && d.answers[id], it = itemById(id);
+        if (!a || !it) return;
+        out.push(csvRow([d.participant, d.practiceRun ? "yes" : "no", d.familiarity, d.status, d.contentVersion,
+          id, it.text, it.gloss || "", it.source, it.events, it.analyst, a.b, bucketLabel(a.b), a.u ? "yes" : "no", a.f ? "yes" : "no", a.n || "",
+          Math.round(((d.ms && d.ms[id]) || 0) / 1000)]));
+      });
+    });
+    return out.join("\n");
+  }
+  function pairCsv(an, A, B) {
+    var out = [csvRow(["item_id", "query", "english_translation", "source", "analyst_bucket", A.participant + "_bucket", B.participant + "_bucket", "raters_agree", "analyst_matches_a", "analyst_matches_b", "a_unfamiliar", "b_unfamiliar", "a_unsure", "b_unsure", "a_note", "b_note"])];
+    an.rows.forEach(function (r) {
+      out.push(csvRow([r.item.id, r.item.text, r.item.gloss || "", r.item.source, r.an, r.a, r.b, r.a === r.b ? "yes" : "no", r.a === r.an ? "yes" : "no", r.b === r.an ? "yes" : "no",
+        r.ax.f ? "yes" : "no", r.bx.f ? "yes" : "no", r.ax.u ? "yes" : "no", r.bx.u ? "yes" : "no", r.ax.n || "", r.bx.n || ""]));
+    });
+    return out.join("\n");
+  }
+  function matrixCsv(an, A, B) {
+    var out = [csvRow([A.participant + " (rows) vs " + B.participant + " (cols)"].concat(an.catList))];
+    an.catList.forEach(function (r) {
+      out.push(csvRow([r].concat(an.catList.map(function (c) { return (an.matrix[r] && an.matrix[r][c]) || 0; }))));
+    });
+    return out.join("\n");
+  }
+  function analysisMarkdown(an, A, B) {
+    var v = verdictFor(an), L = [];
+    L.push("# Query taxonomy test: " + A.participant + " vs " + B.participant);
+    L.push("");
+    L.push("Content version " + (A.contentVersion || "?") + (A.contentVersion !== B.contentVersion ? " and " + (B.contentVersion || "?") + " (the two sorts ran against different versions)" : "") + ". " + an.n + " queries compared. Definitions only, blind, independent sorts.");
+    L.push("");
+    L.push("**" + v.text + "**");
+    L.push("");
+    L.push("| Measure | Value |"); L.push("|---|---|");
+    L.push("| Raw agreement | " + pct(an.overall.po) + " |");
+    L.push("| Cohen's kappa | " + num(an.overall.k) + " (" + kappaBand(an.overall.k) + "), 95% interval " + (an.ci ? num(an.ci.lo) + " to " + num(an.ci.hi) : "n/a") + " |");
+    L.push("| " + A.participant + " vs analyst draft (kappa) | " + num(an.vsA.k) + ", raw " + pct(an.vsA.po) + " |");
+    L.push("| " + B.participant + " vs analyst draft (kappa) | " + num(an.vsB.k) + ", raw " + pct(an.vsB.po) + " |");
+    L.push("| Agreement weighted by head search volume | " + pct(an.eventWeighted) + " (" + an.headN + " head queries) |");
+    L.push("| Agreement, neither flagged unfamiliar | " + pct(an.knownAgree) + " (" + an.knownN + ") |");
+    L.push("| Agreement, either flagged unfamiliar | " + pct(an.famAgree) + " (" + an.famN + ") |");
+    L.push("");
+    L.push("## By bucket");
+    L.push(""); L.push("| Bucket | Draft items | " + A.participant + " matches draft | " + B.participant + " matches draft | Specific agreement |"); L.push("|---|---|---|---|---|");
+    an.perBucket.forEach(function (p) {
+      L.push("| " + bucketLabel(p.code) + " | " + p.nAn + " | " + pct(p.aHit) + " | " + pct(p.bHit) + " | " + pct(p.specific) + " (" + p.nA + " / " + p.nB + " labelled) |");
+    });
+    L.push("");
+    L.push("## Most confused bucket pairs");
+    an.confusedList.slice(0, 8).forEach(function (c) {
+      L.push("- " + bucketLabel(c.x) + " / " + bucketLabel(c.y) + ": " + c.n + " (" + c.items.join("; ") + ")");
+    });
+    L.push("");
+    L.push("## Where the raters split");
+    an.raterSplit.forEach(function (r) {
+      L.push("- " + r.item.text + ": " + A.participant + " " + r.a + ", " + B.participant + " " + r.b + ", draft " + (r.an || "none"));
+    });
+    L.push("");
+    L.push("## Raters agree, draft differs");
+    an.bothOffAnalyst.forEach(function (r) {
+      L.push("- " + r.item.text + ": both " + r.a + ", draft " + r.an);
+    });
+    L.push("");
+    L.push("Two raters and a stratified sample: read this as directional. Per-bucket figures rest on very few items.");
+    return L.join("\n");
+  }
+  function triggerBrowserDownload(filename, data, mime) {
+    try {
+      var blob = new Blob([data], { type: mime || "text/plain" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      return true;
+    } catch (e) { return false; }
+  }
+  function saveFile(filename, data, mime) {
+    if (downloads) downloads.save({ filename: filename, data: data });
+    else triggerBrowserDownload(filename, data, mime);
+  }
+  function stamp() { return new Date().toISOString().slice(0, 10); }
+
+  // ---------- Header ----------
+  function renderHeader() {
+    var participantFacing = isParticipantScreen();
+    var kids = [
+      el("div", { class: "brand" }, [
+        el("div", { class: "logo", html: LOGO_SVG.replace(/fill="[^"]*"/g, function (m) { return m === 'fill="none"' ? m : 'fill="currentColor"'; }), "aria-label": "doTERRA" }),
+        el("h1", { text: "Query Sorting" })
+      ])
+    ];
+    var right = el("div", { class: "top-right" });
+    if (!participantFacing) {
+      var nav = el("nav", { class: "views", "aria-label": "Sections" });
+      [["session", "Session"], ["ledger", "Ledger"], ["content", "Content"]].forEach(function (v) {
+        nav.appendChild(el("button", { class: view === v[0] ? "active" : "", "aria-current": view === v[0] ? "page" : null, text: v[1],
+          onclick: function () { view = v[0]; exportOpen = null; if (v[0] === "ledger" && !dbReady) refreshLocalLedgerIfLocal(); render(); } }));
+      });
+      right.appendChild(nav);
+    }
+    right.appendChild(el("button", { class: "icon-btn help-btn", "aria-label": "Keyboard shortcuts", "aria-expanded": showShortcuts ? "true" : "false", title: "Keyboard shortcuts", html: KEYBOARD_ICON, onclick: function (e) { e.stopPropagation(); showShortcuts = !showShortcuts; render(); } }));
+    right.appendChild(el("button", { class: "icon-btn", id: "theme-toggle-btn", "aria-label": theme === "dark" ? "Switch to light theme" : "Switch to dark theme", title: theme === "dark" ? "Light theme" : "Dark theme", html: theme === "dark" ? SUN_ICON : MOON_ICON,
+      onclick: function () { theme = theme === "dark" ? "light" : "dark"; document.documentElement.setAttribute("data-theme", theme); render(); } }));
+    kids.push(right);
+    return el("header", { class: "top" }, [el("div", { class: "wrap wide top-inner" }, kids)]);
+  }
+  function refreshLocalLedgerIfLocal() { if (!(dbReady && db) && localStorageOk) refreshLocalLedger(); }
+
+  function storageBanner() {
+    var m = storageMode();
+    if (m === "shared") return el("div", { class: "banner ok", text: "Saving to the shared ledger. Every sort is saved as the session runs." });
+    if (m === "local") return el("div", { class: "banner warn", text: "Saving to this browser only (no shared database in this mode). Not synced to other devices and lost if browsing data is cleared. Export from the Ledger to keep a copy." });
+    return el("div", { class: "banner fail", text: "Nothing can be saved in this mode: no shared database and no browser storage. Results will be lost when the page closes." });
+  }
+
+  // ---------- Session views ----------
+  function renderSetup() {
+    var wrap = el("div", { class: "wrap" });
+    wrap.appendChild(el("h2", { text: "New participant" }));
+    wrap.appendChild(el("p", { class: "lede", text: "Each person sorts " + config.items.length + " search queries into " + config.buckets.length + " buckets, alone, using only the bucket definitions. Run the second person only after the first has finished, and do not let them compare answers until both are done." }));
+    wrap.appendChild(storageBanner());
+
+    var inprog = ledgerDocs.filter(function (d) { return d.status === "in-progress"; });
+    if (inprog.length) {
+      var rc = el("div", { class: "card" }, [el("div", { class: "field-label", text: "Unfinished sessions" })]);
+      inprog.forEach(function (d) {
+        var done = Object.keys(d.answers || {}).filter(function (k) { return d.answers[k].b; }).length;
+        rc.appendChild(el("div", { class: "session-row" }, [
+          el("div", {}, [el("strong", { text: d.participant }), el("div", { class: "small muted", text: done + " of " + (d.order || []).length + " answered" })]),
+          confirmDiscard === d._id
+            ? el("div", { class: "row" }, [
+                el("button", { class: "btn small danger", text: "Discard for good", onclick: function () { deleteSession(d._id); confirmDiscard = null; render(); } }),
+                el("button", { class: "btn small", text: "Keep", onclick: function () { confirmDiscard = null; render(); } })])
+            : el("div", { class: "row" }, [
+                el("button", { class: "btn small primary", text: "Resume", onclick: function () { resumeSession(d); } }),
+                el("button", { class: "btn small", text: "Discard", onclick: function () { confirmDiscard = d._id; render(); } })])
+        ]));
+      });
+      wrap.appendChild(rc);
+    }
+
+    var card = el("div", { class: "card" });
+    if (setupError) card.appendChild(el("div", { class: "banner fail", role: "alert", text: setupError }));
+    card.appendChild(el("label", { class: "field" }, [el("span", { text: "Participant name" }),
+      el("input", { type: "text", value: participant, autocomplete: "off", oninput: function (e) { participant = e.target.value; } })]));
+    var fam = el("div", { class: "field" }, [el("span", { class: "field-label", text: "How familiar are they with the doTERRA product range?" })]);
+    var famRow = el("div", { class: "row" });
+    [[1, "1 None"], [2, "2"], [3, "3 Some"], [4, "4"], [5, "5 Daily use"]].forEach(function (f) {
+      famRow.appendChild(el("button", { class: "btn small" + (familiarity === f[0] ? " primary" : ""), "aria-pressed": familiarity === f[0] ? "true" : "false", text: f[1],
+        onclick: function () { familiarity = f[0]; render(); } }));
+    });
+    fam.appendChild(famRow);
+    fam.appendChild(el("p", { class: "small muted", text: "Recorded as context, not used to filter. Low familiarity can lower agreement on product names for reasons that have nothing to do with the buckets." }));
+    card.appendChild(fam);
+    card.appendChild(el("label", { class: "check" }, [el("input", { type: "checkbox", checked: practiceRun, onchange: function (e) { practiceRun = e.target.checked; } }),
+      el("span", { text: "Practice run (kept in the ledger, excluded from the agreement analysis)" })]));
+    card.appendChild(el("div", { class: "row end" }, [el("button", { class: "btn primary", text: "Start", onclick: startSession })]));
+    wrap.appendChild(card);
+    wrap.appendChild(el("p", { class: "small muted", text: "Content version " + contentVersion + ": " + config.items.length + " queries, " + config.buckets.length + " buckets." }));
+    return wrap;
+  }
+
+  function renderBrief() {
+    var wrap = el("div", { class: "wrap" });
+    wrap.appendChild(el("h2", { text: "Before you start" }));
+    var c = el("div", { class: "card" });
+    c.appendChild(el("p", { text: "You will see " + order.length + " things people typed into the search box on a doTERRA online store, one at a time. For each one, choose the bucket you think it belongs in." }));
+    var ul = el("ul", { class: "tight" });
+    [
+      "Use only the bucket names and descriptions on screen. Please do not look anything up.",
+      "There are no right answers. The buckets are being tested, not you.",
+      "If two buckets could fit, choose the closer one. Flag the ones you were unsure about.",
+      "Some queries are in other languages. An English translation is shown beneath each one. Language is not a bucket: sort by what the query means.",
+      "If you do not recognise a term, say so with the tick box. Still make your best guess.",
+      "Only use “" + NONE_LABEL + "” if nothing is close, and write a few words on why.",
+      "You can go back and change an answer at any point.",
+      "Please do not discuss your answers with anyone until everyone has finished."
+    ].forEach(function (t) { ul.appendChild(el("li", { text: t })); });
+    c.appendChild(ul);
+    c.appendChild(el("div", { class: "row end", style: "margin-top:18px" }, [el("button", { class: "btn primary", text: "Begin", onclick: function () { phase = "sorting"; idx = 0; enterItem(); render(); } })]));
+    wrap.appendChild(c);
+    return wrap;
+  }
+
+  function renderSorting() {
+    var id = order[idx], it = itemById(id), a = currentAnswer();
+    var wrap = el("div", { class: "wrap wide" });
+    wrap.appendChild(el("div", { class: "row between small muted", style: "margin-bottom:6px" }, [
+      el("span", { text: "Query " + (idx + 1) + " of " + order.length }),
+      el("span", { text: answeredCount() + " answered" })]));
+    wrap.appendChild(el("div", { class: "progress", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": String(order.length), "aria-valuenow": String(answeredCount()) }, [
+      el("div", { style: "width:" + (answeredCount() / order.length * 100) + "%" })]));
+    wrap.appendChild(el("div", { class: "card query-card" }, [
+      el("div", { class: "query-label", text: "Someone searched for" }),
+      el("div", { class: "query", lang: "und", text: it.text }),
+      it.gloss ? el("div", { class: "gloss" }, [el("div", { class: "gl-label", text: (it.language || "Other language") + " \u00B7 English translation" }), el("div", { class: "gl-text", text: it.gloss })]) : null]));
+
+    var grid = el("div", { class: "buckets", role: "radiogroup", "aria-label": "Buckets" });
+    config.buckets.forEach(function (b) {
+      grid.appendChild(el("button", { class: "bucket" + (a.b === b.code ? " selected" : ""), role: "radio", "aria-checked": a.b === b.code ? "true" : "false",
+        onclick: function () { selectBucket(b.code); } }, [
+        el("span", { class: "code", text: b.code }),
+        el("span", {}, [el("span", { class: "bname", text: b.name }), el("span", { class: "bdef", text: b.definition })])]));
+    });
+    grid.appendChild(el("button", { class: "bucket none" + (a.b === NONE ? " selected" : ""), role: "radio", "aria-checked": a.b === NONE ? "true" : "false",
+      onclick: function () { selectBucket(NONE); } }, [
+      el("span", { class: "code", text: "?" }),
+      el("span", {}, [el("span", { class: "bname", text: NONE_LABEL }), el("span", { class: "bdef", text: "Nothing here is close. Say why below." })])]));
+    wrap.appendChild(grid);
+
+    wrap.appendChild(el("div", { class: "flags" }, [
+      el("label", { class: "check" }, [el("input", { type: "checkbox", checked: a.f, onchange: function (e) { a.f = e.target.checked; persist("in-progress"); } }), el("span", { text: "I don’t recognise this term" })]),
+      el("label", { class: "check" }, [el("input", { type: "checkbox", checked: a.u, onchange: function (e) { a.u = e.target.checked; persist("in-progress"); } }), el("span", { text: "I’m unsure about this one" })])]));
+    var needNote = a.b === NONE;
+    var nextBtnRef;
+    wrap.appendChild(el("label", { class: "field" }, [
+      el("span", { text: needNote ? "Why does nothing fit? (required)" : "Anything to add? (optional)" }),
+      el("input", { type: "text", value: a.n || "", autocomplete: "off", id: "note-input",
+        oninput: function (e) {
+          a.n = e.target.value;
+          var nb = document.getElementById("next-btn");
+          if (nb) nb.disabled = !a.b || (a.b === NONE && !a.n.trim());
+          var rb = document.getElementById("review-btn");
+          if (rb) rb.disabled = a.b === NONE && !a.n.trim();
+        },
+        onchange: function () { persist("in-progress"); } })]));
+
+    var disabled = !a.b || (a.b === NONE && !a.n.trim());
+    var last = idx === order.length - 1;
+    var navRow = el("div", { class: "nav-row" });
+    navRow.appendChild(el("button", { class: "btn", text: "Back", disabled: idx === 0, onclick: back }));
+    var mid = el("div", { class: "row" });
+    if (reachedReview) {
+      // They have already been through every query once, so ending early no
+      // longer applies: the way out of an edit is back to the review list.
+      mid.appendChild(el("button", { class: "btn small", id: "review-btn", text: "Back to review", disabled: a.b === NONE && !a.n.trim(),
+        onclick: function () { if (a.b === NONE && !a.n.trim()) return; commitTime(); persist("in-progress"); phase = "review"; confirmEnd = false; render(); } }));
+    } else if (confirmEnd) {
+      mid.appendChild(el("span", { class: "small muted", text: "End now? Answers so far are kept but this sort will not count." }));
+      mid.appendChild(el("button", { class: "btn small danger", text: "End early", onclick: endEarly }));
+      mid.appendChild(el("button", { class: "btn small", text: "Carry on", onclick: function () { confirmEnd = false; render(); } }));
+    } else {
+      mid.appendChild(el("button", { class: "btn small", text: "End early", onclick: function () { confirmEnd = true; render(); } }));
+    }
+    navRow.appendChild(mid);
+    navRow.appendChild(el("button", { class: "btn primary", id: "next-btn", text: last ? "Review answers" : "Next", disabled: disabled, onclick: next }));
+    wrap.appendChild(navRow);
+    wrap.appendChild(el("p", { class: "small muted", style: "margin-top:14px", text: "Keyboard: press a bucket’s letter to choose it, 0 for “" + NONE_LABEL + "”, Enter for next, ← to go back." }));
+    return wrap;
+  }
+
+  function renderReview() {
+    var wrap = el("div", { class: "wrap" });
+    wrap.appendChild(el("h2", { text: "Review your answers" }));
+    wrap.appendChild(el("p", { class: "lede", text: "Tap any row to go back and change it. When you are happy, finish." }));
+    var missing = order.length - answeredCount();
+    if (missing) wrap.appendChild(el("div", { class: "banner warn", text: plural(missing, "query", "queries") + " still to answer." }));
+    var tbody = el("tbody");
+    order.forEach(function (id, i) {
+      var it = itemById(id), a = answers[id] || {};
+      tbody.appendChild(el("tr", { class: "clickable", tabindex: "0", onclick: function () { goTo(i); }, onkeydown: function (e) { if (e.key === "Enter") goTo(i); } }, [
+        el("td", { text: String(i + 1) }), el("td", { lang: "und" }, [it.text, it.gloss ? el("span", { class: "gl-inline", text: it.gloss }) : null]),
+        el("td", { text: a.b ? bucketLabel(a.b) : "Not answered" }),
+        el("td", {}, [a.f ? el("span", { class: "badge", text: "Unfamiliar" }) : null, a.u ? el("span", { class: "badge", text: "Unsure" }) : null])]));
+    });
+    wrap.appendChild(el("div", { class: "tablewrap" }, [el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "#" }), el("th", { text: "Query" }), el("th", { text: "Bucket" }), el("th", { text: "Flags" })])]), tbody])]));
+    wrap.appendChild(el("div", { class: "row end", style: "margin-top:16px" }, [el("button", { class: "btn primary", disabled: missing > 0, text: "Finish", onclick: function () { phase = "debrief"; render(); } })]));
+    return wrap;
+  }
+
+  function renderDebrief() {
+    var wrap = el("div", { class: "wrap" });
+    wrap.appendChild(el("h2", { text: "Moderator: debrief" }));
+    wrap.appendChild(el("p", { class: "lede", text: "Ask the participant, then record. Their reasons are worth more than the percentages." }));
+    var c = el("div", { class: "card" });
+    c.appendChild(el("div", { class: "field-label", text: "Which buckets were hardest to tell apart?" }));
+    var grid = el("div", { class: "buckets", style: "margin-bottom:16px" });
+    config.buckets.forEach(function (b) {
+      var on = debrief.hardest.indexOf(b.code) !== -1;
+      grid.appendChild(el("label", { class: "check" }, [el("input", { type: "checkbox", checked: on, onchange: function (e) {
+        var i = debrief.hardest.indexOf(b.code);
+        if (e.target.checked && i === -1) debrief.hardest.push(b.code);
+        if (!e.target.checked && i !== -1) debrief.hardest.splice(i, 1);
+      } }), el("span", { text: b.code + " " + b.name })]));
+    });
+    c.appendChild(grid);
+    c.appendChild(el("div", { class: "field-label", text: "How confident were they overall? (1 low to 5 high)" }));
+    var row = el("div", { class: "row", style: "margin-bottom:16px" });
+    [1, 2, 3, 4, 5].forEach(function (n) {
+      row.appendChild(el("button", { class: "btn small" + (debrief.confidence === n ? " primary" : ""), "aria-pressed": debrief.confidence === n ? "true" : "false", text: String(n), onclick: function () { debrief.confidence = n; render(); } }));
+    });
+    c.appendChild(row);
+    c.appendChild(el("label", { class: "field" }, [el("span", { text: "Notes: terms they argued with, definitions that confused them, anything they said aloud" }),
+      el("textarea", { value: debrief.notes, oninput: function (e) { debrief.notes = e.target.value; } })]));
+    c.appendChild(el("div", { class: "row end" }, [el("button", { class: "btn primary", disabled: !debrief.confidence, text: "Save and finish", onclick: finish })]));
+    wrap.appendChild(c);
+    return wrap;
+  }
+
+  function renderDone() {
+    var wrap = el("div", { class: "wrap" });
+    var early = doneStatus === "ended-early";
+    wrap.appendChild(el("h2", { text: early ? "Session ended early" : "Thank you" }));
+    wrap.appendChild(el("p", { class: "lede", text: early ? "The answers so far are in the ledger, but this sort will not count towards the agreement analysis." : "Saved to the ledger. Please do not discuss your answers with the next person until they have finished too." }));
+    wrap.appendChild(storageBanner());
+    wrap.appendChild(el("div", { class: "row" }, [
+      el("button", { class: "btn primary", text: "Next participant", onclick: resetToSetup }),
+      el("button", { class: "btn", text: "Open the ledger", onclick: function () { resetToSetup(); view = "ledger"; render(); } })]));
+    return wrap;
+  }
+
+  // ---------- Ledger ----------
+  function exportMenu(id, label, entries) {
+    var wrap = el("div", { class: "export-menu-wrap" });
+    wrap.appendChild(el("button", { class: "btn small", "aria-haspopup": "true", "aria-expanded": exportOpen === id ? "true" : "false", text: label + " ▾",
+      onclick: function (e) { e.stopPropagation(); exportOpen = exportOpen === id ? null : id; render(); } }));
+    if (exportOpen === id) {
+      var m = el("div", { class: "export-menu", role: "menu" });
+      entries.forEach(function (en) { m.appendChild(el("button", { role: "menuitem", text: en[0], onclick: function () { exportOpen = null; en[1](); render(); } })); });
+      wrap.appendChild(m);
+    }
+    return wrap;
+  }
+
+  function renderLedger() {
+    var wrap = el("div", { class: "wrap wide" });
+    wrap.appendChild(el("h2", { text: "Ledger" }));
+    wrap.appendChild(storageBanner());
+    var docs = ledgerDocs;
+    var ok = eligibleDocs(docs);
+
+    wrap.appendChild(el("div", { class: "row between", style: "margin-bottom:10px" }, [
+      el("div", { class: "muted", text: plural(docs.length, "session") + ", " + plural(ok.length, "usable sort") + " (complete, not practice)" }),
+      exportMenu("all", "Export all", [
+        ["Ratings (CSV)", function () { saveFile("query-sorting-ratings-" + stamp() + ".csv", ratingsCsv(docs), "text/csv"); }],
+        ["Everything (JSON)", function () { saveFile("query-sorting-" + stamp() + ".json", JSON.stringify({ config: config, contentVersion: contentVersion, sessions: docs }, null, 2), "application/json"); }]])]));
+
+    // Analysis
+    var an = null, A = null, B = null;
+    wrap.appendChild(el("h3", { text: "Agreement between two raters" }));
+    if (ok.length < 2) {
+      wrap.appendChild(el("div", { class: "banner info", text: "Needs two completed, non-practice sorts. " + ok.length + " so far." }));
+    } else {
+      if (!docById(ok, pairA) || !docById(ok, pairB) || pairA === pairB) { pairA = ok[0]._id; pairB = ok[1]._id; }
+      A = docById(ok, pairA); B = docById(ok, pairB);
+      var sel = function (cur, other, setter) {
+        return el("select", { "aria-label": "Rater", onchange: function (e) { setter(e.target.value); render(); } },
+          ok.map(function (d) { return el("option", { value: d._id, selected: d._id === cur ? true : null, disabled: d._id === other ? true : null, text: d.participant }); }));
+      };
+      wrap.appendChild(el("div", { class: "row", style: "margin-bottom:10px" }, [
+        el("span", { class: "small muted", text: "Rater 1" }), sel(pairA, pairB, function (v) { pairA = v; }),
+        el("span", { class: "small muted", text: "Rater 2" }), sel(pairB, pairA, function (v) { pairB = v; })]));
+      an = analyse(A, B);
+      wrap.appendChild(renderAnalysis(an, A, B));
+    }
+
+    // Sessions
+    wrap.appendChild(el("h3", { text: "Sessions" }));
+    var card = el("div", { class: "card" });
+    if (!docs.length) card.appendChild(el("p", { class: "muted", text: "Nothing recorded yet." }));
+    docs.forEach(function (d) { card.appendChild(renderSessionRow(d)); });
+    wrap.appendChild(card);
+    return wrap;
+  }
+
+  function renderSessionRow(d) {
+    var answered = Object.keys(d.answers || {}).filter(function (k) { return d.answers[k].b; }).length;
+    var tags = el("div", { class: "tags" }, [
+      el("span", { class: "badge " + (d.status === "complete" ? "ok" : d.status === "in-progress" ? "warn" : "fail"), text: d.status }),
+      d.practiceRun ? el("span", { class: "badge accent", text: "Practice" }) : null,
+      el("span", { class: "badge", text: "Familiarity " + (d.familiarity || "?") }),
+      el("span", { class: "badge", text: answered + "/" + (d.order || []).length + " answered" }),
+      el("span", { class: "badge", text: fmtSecs(d.totalMs || 0) + " active" }),
+      el("span", { class: "badge", text: "Content v" + (d.contentVersion || "?") })]);
+    var left = el("div", {}, [el("strong", { text: d.participant }), tags]);
+    if (d.debrief && (d.debrief.hardest || []).length) left.appendChild(el("div", { class: "small muted", style: "margin-top:6px", text: "Hardest to tell apart: " + d.debrief.hardest.join(", ") + (d.debrief.confidence ? ". Confidence " + d.debrief.confidence + "/5." : "") }));
+    if (d.debrief && d.debrief.notes) left.appendChild(el("div", { class: "small", style: "margin-top:4px", text: "Debrief: " + d.debrief.notes }));
+    var editing = editingNotes[d._id] != null;
+    if (editing) {
+      left.appendChild(el("textarea", { value: editingNotes[d._id], "aria-label": "Notes for " + d.participant, oninput: function (e) { editingNotes[d._id] = e.target.value; } }));
+      left.appendChild(el("div", { class: "row", style: "margin-top:6px" }, [
+        el("button", { class: "btn small primary", text: "Save notes", onclick: function () { patchSession(d._id, { notes: editingNotes[d._id] }); delete editingNotes[d._id]; render(); } }),
+        el("button", { class: "btn small", text: "Cancel", onclick: function () { delete editingNotes[d._id]; render(); } })]));
+    } else if (d.notes) left.appendChild(el("div", { class: "small", style: "margin-top:4px", text: "Notes: " + d.notes }));
+    var actions = el("div", { class: "row" });
+    if (!editing) actions.appendChild(el("button", { class: "btn small", text: d.notes ? "Edit notes" : "Add notes", onclick: function () { editingNotes[d._id] = d.notes || ""; render(); } }));
+    if (d.status === "in-progress") actions.appendChild(el("button", { class: "btn small primary", text: "Resume", onclick: function () { view = "session"; resumeSession(d); } }));
+    actions.appendChild(exportMenu("s" + d._id, "Export", [["Ratings (CSV)", function () { saveFile("query-sorting-" + normaliseName(d.participant).replace(/\s+/g, "-") + ".csv", ratingsCsv([d]), "text/csv"); }]]));
+    if (confirmDiscard === d._id) {
+      actions.appendChild(el("button", { class: "btn small danger", text: "Delete for good", onclick: function () { deleteSession(d._id); confirmDiscard = null; render(); } }));
+      actions.appendChild(el("button", { class: "btn small", text: "Keep", onclick: function () { confirmDiscard = null; render(); } }));
+    } else actions.appendChild(el("button", { class: "btn small", text: "Delete", onclick: function () { confirmDiscard = d._id; render(); } }));
+    return el("div", { class: "session-row" }, [left, actions]);
+  }
+
+  function tile(label, big, cap) {
+    return el("div", { class: "tile" }, [el("div", { class: "lbl", text: label }), el("div", { class: "big", text: big }), cap ? el("div", { class: "cap", text: cap }) : null]);
+  }
+  function codeChip(c) { return c === NONE ? "None" : c; }
+
+  function renderAnalysis(an, A, B) {
+    var box = el("div");
+    var v = verdictFor(an);
+    box.appendChild(el("div", { class: "banner " + v.cls, text: v.text }));
+    if (A.contentVersion !== B.contentVersion) box.appendChild(el("div", { class: "banner warn", text: "These two sorts ran against different content versions (" + A.contentVersion + " and " + B.contentVersion + "). Only queries both people answered are compared, but check the definitions did not change in between." }));
+    if (an.n < config.items.length) box.appendChild(el("div", { class: "banner info", text: "Comparing " + an.n + " of " + config.items.length + " queries (the rest were not answered by both)." }));
+
+    box.appendChild(el("div", { class: "tiles" }, [
+      tile("Raw agreement", pct(an.overall.po), an.n + " queries compared"),
+      tile("Cohen’s kappa", num(an.overall.k), kappaBand(an.overall.k) + (an.ci ? ", 95% interval " + num(an.ci.lo) + " to " + num(an.ci.hi) : "") + ". Target " + config.kappaTarget),
+      tile(A.participant + " vs draft", num(an.vsA.k), "kappa; raw " + pct(an.vsA.po)),
+      tile(B.participant + " vs draft", num(an.vsB.k), "kappa; raw " + pct(an.vsB.po)),
+      tile("Weighted by volume", pct(an.eventWeighted), "agreement across " + an.headN + " head queries, weighted by search events"),
+      tile("Term familiarity", pct(an.knownAgree) + " / " + pct(an.famAgree), "agreement when neither / either flagged a term unfamiliar (" + an.knownN + " / " + an.famN + ")")]));
+    box.appendChild(el("p", { class: "small muted", text: "Kappa corrects raw agreement for chance. The sample is stratified so small buckets are represented, which means it does not mirror real search volume; the volume-weighted figure is the closest read on that. Two raters and about 50 queries gives a wide interval, so treat this as directional. Kappa also drops when one bucket dominates, even if raters mostly agree." }));
+
+    // Per bucket
+    box.appendChild(el("h3", { text: "By bucket" }));
+    var tb = el("tbody");
+    an.perBucket.forEach(function (p) {
+      var verdict, cls;
+      if (p.nA + p.nB < 4) { verdict = "Too few to say"; cls = ""; }
+      else if (p.specific != null && p.specific >= config.specificTarget) { verdict = "Holds"; cls = "ok"; }
+      else { verdict = "Needs work"; cls = "fail"; }
+      tb.appendChild(el("tr", {}, [
+        el("td", { text: bucketLabel(p.code) }), el("td", { class: "num", text: String(p.nAn) }),
+        el("td", { class: "num", text: p.nAn ? pct(p.aHit) : "n/a" }), el("td", { class: "num", text: p.nAn ? pct(p.bHit) : "n/a" }),
+        el("td", { class: "num", text: p.nA + " / " + p.nB }), el("td", { class: "num", text: pct(p.specific) }),
+        el("td", {}, [el("span", { class: "badge " + cls, text: verdict })])]));
+    });
+    box.appendChild(el("div", { class: "tablewrap" }, [el("table", {}, [
+      el("thead", {}, [el("tr", {}, [el("th", { text: "Bucket" }), el("th", { class: "num", text: "Draft items" }), el("th", { class: "num", text: A.participant + " matches draft" }), el("th", { class: "num", text: B.participant + " matches draft" }), el("th", { class: "num", text: "Labelled (1 / 2)" }), el("th", { class: "num", text: "Specific agreement" }), el("th", { text: "Read" })])]), tb])]));
+    box.appendChild(el("p", { class: "small muted", text: "Specific agreement is how often both raters chose this bucket, out of all the times either did. “Holds” means at least " + pct(config.specificTarget) + ". With a few queries per bucket, one disagreement moves these a long way." }));
+
+    // Most confused
+    box.appendChild(el("h3", { text: "Where the buckets blur" }));
+    if (!an.confusedList.length) box.appendChild(el("p", { class: "muted", text: "The two raters never disagreed." }));
+    else {
+      var ul = el("ul", { class: "tight" });
+      an.confusedList.slice(0, 8).forEach(function (c) {
+        ul.appendChild(el("li", {}, [el("strong", { text: bucketLabel(c.x) + "  /  " + bucketLabel(c.y) }), " (" + c.n + "): " + c.items.join("; ")]));
+      });
+      box.appendChild(ul);
+    }
+
+    // Matrix
+    box.appendChild(el("h3", { text: "Confusion matrix" }));
+    box.appendChild(el("p", { class: "small muted", text: "Rows are " + A.participant + ", columns are " + B.participant + ". The diagonal is agreement." }));
+    var mhead = el("tr", {}, [el("th", { class: "rowh", text: "" })].concat(an.catList.map(function (c) { return el("th", { text: codeChip(c) }); })));
+    var mbody = el("tbody");
+    var maxOff = 1;
+    an.catList.forEach(function (r) { an.catList.forEach(function (c) { if (r !== c) maxOff = Math.max(maxOff, (an.matrix[r] && an.matrix[r][c]) || 0); }); });
+    an.catList.forEach(function (r) {
+      mbody.appendChild(el("tr", {}, [el("th", { class: "rowh", text: codeChip(r) })].concat(an.catList.map(function (c) {
+        var n = (an.matrix[r] && an.matrix[r][c]) || 0;
+        var bg = "";
+        if (n) bg = r === c ? "background:var(--success-bg)" : "background:rgba(240,68,56," + (0.12 + 0.4 * n / maxOff).toFixed(2) + ")";
+        return el("td", { class: r === c ? "diag" : "", style: bg, text: n ? String(n) : "" });
+      }))));
+    });
+    box.appendChild(el("div", { class: "tablewrap" }, [el("table", { class: "matrix" }, [el("thead", {}, [mhead]), mbody])]));
+
+    // Item lists
+    function itemTable(rows, withDraft) {
+      var body = el("tbody");
+      rows.forEach(function (r) {
+        var flags = [];
+        if (r.ax.f) flags.push(A.participant + ": unfamiliar");
+        if (r.bx.f) flags.push(B.participant + ": unfamiliar");
+        if (r.ax.u) flags.push(A.participant + ": unsure");
+        if (r.bx.u) flags.push(B.participant + ": unsure");
+        var notes = [];
+        if (r.ax.n) notes.push(A.participant + ": " + r.ax.n);
+        if (r.bx.n) notes.push(B.participant + ": " + r.bx.n);
+        body.appendChild(el("tr", {}, [
+          el("td", { lang: "und" }, [r.item.text, r.item.gloss ? el("span", { class: "gl-inline", text: r.item.gloss }) : null]), el("td", { text: bucketLabel(r.a) }), el("td", { text: bucketLabel(r.b) }),
+          withDraft ? el("td", { text: r.an ? bucketLabel(r.an) : "none" }) : null,
+          el("td", { class: "small", text: flags.join("; ") }), el("td", { class: "small", text: notes.join(" | ") })]));
+      });
+      return el("div", { class: "tablewrap" }, [el("table", {}, [
+        el("thead", {}, [el("tr", {}, [el("th", { text: "Query" }), el("th", { text: A.participant }), el("th", { text: B.participant }), withDraft ? el("th", { text: "Analyst draft" }) : null, el("th", { text: "Flags" }), el("th", { text: "Notes" })])]), body])]);
+    }
+    box.appendChild(el("h3", { text: "Raters split (" + an.raterSplit.length + ")" }));
+    box.appendChild(an.raterSplit.length ? itemTable(an.raterSplit, true) : el("p", { class: "muted", text: "None." }));
+    box.appendChild(el("h3", { text: "Raters agree, analyst draft differs (" + an.bothOffAnalyst.length + ")" }));
+    box.appendChild(el("p", { class: "small muted", text: "The strongest signal that the draft classification, not the definition, is what to revisit." }));
+    box.appendChild(an.bothOffAnalyst.length ? itemTable(an.bothOffAnalyst, true) : el("p", { class: "muted", text: "None." }));
+
+    box.appendChild(el("div", { class: "row end", style: "margin-top:16px" }, [
+      exportMenu("pair", "Export comparison", [
+        ["Summary (Markdown)", function () { saveFile("taxonomy-agreement-" + stamp() + ".md", analysisMarkdown(an, A, B), "text/markdown"); }],
+        ["Item comparison (CSV)", function () { saveFile("taxonomy-agreement-items-" + stamp() + ".csv", pairCsv(an, A, B), "text/csv"); }],
+        ["Confusion matrix (CSV)", function () { saveFile("taxonomy-agreement-matrix-" + stamp() + ".csv", matrixCsv(an, A, B), "text/csv"); }]])]));
+    return box;
+  }
+
+  // ---------- Content ----------
+  function validateConfig(parsed) {
+    if (!parsed || typeof parsed !== "object") return "The content must be a JSON object with buckets and items.";
+    if (!Array.isArray(parsed.buckets) || parsed.buckets.length < 2) return "buckets must be an array of at least 2.";
+    var codes = {};
+    for (var i = 0; i < parsed.buckets.length; i++) {
+      var b = parsed.buckets[i], n = i + 1;
+      if (!b || typeof b.code !== "string" || !b.code.trim()) return "Bucket " + n + " needs a code.";
+      if (b.code === NONE) return "Bucket code " + NONE + " is reserved.";
+      if (codes[b.code]) return "Duplicate bucket code " + b.code + ".";
+      codes[b.code] = true;
+      if (typeof b.name !== "string" || !b.name.trim()) return "Bucket " + b.code + " needs a name.";
+      if (typeof b.definition !== "string" || !b.definition.trim()) return "Bucket " + b.code + " needs a definition.";
+    }
+    if (!Array.isArray(parsed.items) || parsed.items.length < 2) return "items must be an array of at least 2.";
+    var ids = {}, texts = {};
+    for (var j = 0; j < parsed.items.length; j++) {
+      var it = parsed.items[j], m = j + 1;
+      if (!it || typeof it.id !== "string" || !it.id.trim()) return "Item " + m + " needs an id.";
+      if (ids[it.id]) return "Duplicate item id " + it.id + ".";
+      ids[it.id] = true;
+      if (typeof it.text !== "string" || !it.text.trim()) return "Item " + it.id + " needs text.";
+      var tk = normaliseName(it.text);
+      if (texts[tk]) return "Duplicate query text: \"" + it.text + "\".";
+      texts[tk] = true;
+      if (it.gloss != null && (typeof it.gloss !== "string" || !it.gloss.trim())) return "Item " + it.id + " has an empty gloss. Remove it or give the English translation.";
+      if (it.analyst && !codes[it.analyst]) return "Item " + it.id + " has analyst bucket \"" + it.analyst + "\", which is not a defined bucket.";
+    }
+    return null;
+  }
+  function savePayload(payload) {
+    if (dbReady && db) db.doc("config/content").set(payload).catch(function () {});
+    else if (localStorageOk) { try { window.localStorage.setItem(LOCAL_CONTENT_KEY, JSON.stringify(payload)); } catch (e) {} }
+  }
+  function saveContent() {
+    contentWarning = null;
+    var parsed;
+    try { parsed = JSON.parse(contentDraft); } catch (e) { contentError = "Not valid JSON: " + e.message; return render(); }
+    var problem = validateConfig(parsed);
+    if (problem) { contentError = problem; return render(); }
+    var kt = parseFloat(kDraft), st = parseFloat(sDraft);
+    if (!(kt > 0 && kt < 1)) kt = 0.61;
+    if (!(st > 0 && st <= 1)) st = 0.6;
+    var notes = [];
+    if (parsed.items.length > 60) notes.push(parsed.items.length + " queries is over the 60 guide. Expect fatigue to degrade the later answers.");
+    var perB = {};
+    parsed.items.forEach(function (it) { if (it.analyst) perB[it.analyst] = (perB[it.analyst] || 0) + 1; });
+    var thin = parsed.buckets.filter(function (b) { return (perB[b.code] || 0) < 2; }).map(function (b) { return b.code; });
+    if (thin.length) notes.push("Buckets with fewer than 2 draft items, so per-bucket results will say little: " + thin.join(", ") + ".");
+    contentError = null; contentWarning = notes.length ? notes.join(" ") : null;
+    config = { buckets: parsed.buckets, items: parsed.items, kappaTarget: kt, specificTarget: st, shuffle: shuffleDraft !== false };
+    contentVersion = (contentVersion || 0) + 1;
+    contentUpdatedAt = new Date().toISOString();
+    contentDraft = null; kDraft = null; sDraft = null; shuffleDraft = null;
+    savePayload({ buckets: config.buckets, items: config.items, kappaTarget: kt, specificTarget: st, shuffle: config.shuffle, version: contentVersion, updatedAt: contentUpdatedAt });
+    render();
+  }
+  function resetContent() {
+    config = clone(DEFAULT_CONFIG);
+    contentVersion = (contentVersion || 0) + 1;
+    contentUpdatedAt = new Date().toISOString();
+    contentDraft = null; kDraft = null; sDraft = null; shuffleDraft = null; contentError = null; contentWarning = null;
+    savePayload({ buckets: config.buckets, items: config.items, kappaTarget: config.kappaTarget, specificTarget: config.specificTarget, shuffle: config.shuffle, version: contentVersion, updatedAt: contentUpdatedAt });
+    render();
+  }
+  function renderContent() {
+    var wrap = el("div", { class: "wrap wide" });
+    wrap.appendChild(el("h2", { text: "Content" }));
+    wrap.appendChild(el("p", { class: "lede", text: "The buckets and the queries to sort. Every save becomes a new version, and each session records which version it ran against. Changing content between the two sorts breaks the comparison, so edit before the first participant, not between them." }));
+    if (ledgerDocs.length) wrap.appendChild(el("div", { class: "banner warn", text: "There are already " + plural(ledgerDocs.length, "session") + " in the ledger. Saving now creates version " + (contentVersion + 1) + ", and any new sort will not be comparable with them." }));
+    if (contentError) wrap.appendChild(el("div", { class: "banner fail", role: "alert", text: contentError }));
+    if (contentWarning) wrap.appendChild(el("div", { class: "banner warn", text: contentWarning }));
+    var card = el("div", { class: "card" });
+    var shown = contentDraft != null ? contentDraft : JSON.stringify({ buckets: config.buckets, items: config.items }, null, 2);
+    card.appendChild(el("label", { class: "field" }, [el("span", { text: "Buckets and items (JSON). Each item’s “analyst” is the draft classification being tested; participants never see it. An optional \u201Cgloss\u201D (English translation) and \u201Clanguage\u201D are shown under the query." }),
+      el("textarea", { class: "json", spellcheck: "false", value: shown, oninput: function (e) { contentDraft = e.target.value; } })]));
+    card.appendChild(el("div", { class: "row" }, [
+      el("label", { class: "field grow" }, [el("span", { text: "Kappa target (substantial agreement starts at 0.61)" }), el("input", { type: "number", step: "0.01", min: "0.01", max: "0.99", value: kDraft != null ? kDraft : config.kappaTarget, oninput: function (e) { kDraft = e.target.value; } })]),
+      el("label", { class: "field grow" }, [el("span", { text: "Specific agreement target per bucket (0 to 1)" }), el("input", { type: "number", step: "0.05", min: "0.05", max: "1", value: sDraft != null ? sDraft : config.specificTarget, oninput: function (e) { sDraft = e.target.value; } })])]));
+    card.appendChild(el("label", { class: "check" }, [el("input", { type: "checkbox", checked: shuffleDraft != null ? shuffleDraft : config.shuffle, onchange: function (e) { shuffleDraft = e.target.checked; } }), el("span", { text: "Shuffle the query order for each participant (recommended, so order effects do not line up between raters)" })]));
+    card.appendChild(el("div", { class: "row between" }, [
+      el("span", { class: "small muted", text: "Version " + contentVersion + (contentUpdatedAt ? ", saved " + contentUpdatedAt.slice(0, 16).replace("T", " ") : ", built-in default") }),
+      el("div", { class: "row" }, [el("button", { class: "btn", text: "Reset to default", onclick: resetContent }), el("button", { class: "btn primary", text: "Save new version", onclick: saveContent })])]));
+    wrap.appendChild(card);
+
+    wrap.appendChild(el("h3", { text: "Coverage of the draft" }));
+    var counts = {}, src = { head: 0, zero: 0, tail: 0 };
+    config.items.forEach(function (it) { counts[it.analyst || "(none)"] = (counts[it.analyst || "(none)"] || 0) + 1; if (src[it.source] != null) src[it.source]++; });
+    var tb = el("tbody");
+    config.buckets.forEach(function (b) { tb.appendChild(el("tr", {}, [el("td", { text: b.code + " " + b.name }), el("td", { class: "num", text: String(counts[b.code] || 0) })])); });
+    wrap.appendChild(el("div", { class: "tablewrap" }, [el("table", {}, [el("thead", {}, [el("tr", {}, [el("th", { text: "Bucket" }), el("th", { class: "num", text: "Queries in sample" })])]), tb])]));
+    wrap.appendChild(el("p", { class: "small muted", text: "Sources: " + src.head + " from the head of the GA4 export, " + src.zero + " from the zero-result list, " + src.tail + " from the long tail. Buckets K, M and N have little or no head volume, so their items come from the zero-result list and the long tail. They are in the sample to test whether the definitions can be applied, not to say how common those queries are." }));
+    return wrap;
+  }
+
+  // ---------- Shortcuts ----------
+  function isParticipantScreen() {
+    return (phase === "brief" || phase === "sorting" || phase === "review") && view === "session";
+  }
+  function renderShortcuts() {
+    var codes = config.buckets.map(function (b) { return b.code; });
+    var range = codes.length > 1 ? codes[0] + " to " + codes[codes.length - 1] : codes[0];
+    var body;
+    if (isParticipantScreen()) {
+      body = [
+        el("dl", {}, [
+          el("dt", { text: range }), el("dd", { text: "Choose that bucket" }),
+          el("dt", { text: "0" }), el("dd", { text: NONE_LABEL }),
+          el("dt", { text: "Enter" }), el("dd", { text: "Next query" }),
+          el("dt", { text: "\u2190" }), el("dd", { text: "Previous query" }),
+          el("dt", { text: "?" }), el("dd", { text: "Show or hide this panel" }),
+          el("dt", { text: "Esc" }), el("dd", { text: "Close this panel" })]),
+        el("p", { class: "small muted", text: "These work on the query screen. Typing in the notes box works as normal." })];
+    } else {
+      body = [
+        el("dl", {}, [
+          el("dt", { text: "1" }), el("dd", { text: "Session tab" }), el("dt", { text: "2" }), el("dd", { text: "Ledger tab" }), el("dt", { text: "3" }), el("dd", { text: "Content tab" }),
+          el("dt", { text: "?" }), el("dd", { text: "This panel" }), el("dt", { text: "Esc" }), el("dd", { text: "Close menus" })]),
+        el("p", { class: "small muted", text: "While sorting: a bucket\u2019s letter chooses it, 0 is \u201C" + NONE_LABEL + "\u201D, Enter is next, left arrow is back." })];
+    }
+    return el("aside", { class: "shortcuts-panel", role: "dialog", "aria-label": "Keyboard shortcuts" }, [el("strong", { text: "Keyboard shortcuts" })].concat(body));
+  }
+
+  // ---------- Render ----------
+  var lastPhaseKey = "";
+  function render() {
+    var app = document.getElementById("app");
+    var activeId = document.activeElement && document.activeElement.id;
+    app.innerHTML = "";
+    app.appendChild(renderHeader());
+    var body;
+    if (view === "ledger") body = renderLedger();
+    else if (view === "content") body = renderContent();
+    else if (phase === "brief") body = renderBrief();
+    else if (phase === "sorting") body = renderSorting();
+    else if (phase === "review") body = renderReview();
+    else if (phase === "debrief") body = renderDebrief();
+    else if (phase === "done") body = renderDone();
+    else body = renderSetup();
+    var key = view + ":" + phase;
+    var main = el("main", { class: key !== lastPhaseKey ? "phase-enter" : "" }, [body]);
+    lastPhaseKey = key;
+    app.appendChild(main);
+    if (showShortcuts) app.appendChild(renderShortcuts());
+    if (activeId === "note-input") { var n = document.getElementById("note-input"); if (n) n.focus(); }
+  }
+
+  document.addEventListener("click", function () { if (exportOpen) { exportOpen = null; render(); } });
+  document.addEventListener("keydown", function (e) {
+    var t = e.target, typing = t && (t.tagName === "INPUT" && t.type === "text" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
+    if (e.key === "Escape") { if (exportOpen || showShortcuts) { exportOpen = null; showShortcuts = false; render(); } return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (view === "session" && phase === "sorting") {
+      if (typing) { if (e.key === "Enter" && t.id === "note-input") { e.preventDefault(); next(); } return; }
+      if (e.key === "?") { showShortcuts = !showShortcuts; render(); e.preventDefault(); return; }
+      var k = e.key.toUpperCase();
+      if (k === "0") { selectBucket(NONE); e.preventDefault(); return; }
+      if (k.length === 1 && bucketByCode(k)) { selectBucket(k); e.preventDefault(); return; }
+      if (e.key === "Enter") { next(); e.preventDefault(); return; }
+      if (e.key === "ArrowLeft") { back(); e.preventDefault(); }
+      return;
+    }
+    if (typing) return;
+    if (isParticipantScreen()) {
+      if (e.key === "?") { showShortcuts = !showShortcuts; render(); }
+      return;
+    }
+    if (e.key === "1") { view = "session"; render(); }
+    else if (e.key === "2") { view = "ledger"; refreshLocalLedgerIfLocal(); render(); }
+    else if (e.key === "3") { view = "content"; render(); }
+    else if (e.key === "?") { showShortcuts = !showShortcuts; render(); }
+  });
+
+  // Self-test hook for the moderator console: window.__querySortingStats(pairs)
+  window.__querySortingStats = { cohen: cohen, bootstrapKappa: bootstrapKappa };
+
+  // Follow the viewer's own choice when the host has set one, otherwise the system setting.
+  var hostTheme = document.documentElement.getAttribute("data-theme");
+  if (hostTheme === "dark" || hostTheme === "light") theme = hostTheme;
+  else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark";
+  document.documentElement.setAttribute("data-theme", theme);
+  initCapabilities();
+  render();
+})();
+</script>
+</body>
+</html>
